@@ -7,14 +7,21 @@ import sys,math
 
 def iterate(i,imax,dx,errormax):
     # check it to continue iterating
-    r = False
+    r = True
     if imax is None:
         if np.dot(dx,dx) < errormax*errormax:
-            r = True
+            r = False
     else:
-        if i <= imax:
-            r = True
+        if i >= imax:
+            r = False
     return r
+
+
+def gnuplot_output(x,function = True):
+    if function:
+        print 'growthrate(abconc) = {:.6e}*(1-exp({:6e}*(abconc-{:6e})))/(1+{:6e}*exp({:6e}*(abconc-{:6e})))'.format(x[0],x[3],x[2],x[1],x[3],x[2])
+    else:
+        print '{:.6e}*(1-exp({:6e}*(x-{:6e})))/(1+{:6e}*exp({:6e}*(x-{:6e})))'.format(x[0],x[3],x[2],x[1],x[3],x[2])
 
 
 def main():
@@ -26,6 +33,7 @@ def main():
     parser.add_argument("-A","--NRalpha",default=1,type=float)
     parser.add_argument("-I","--initialguess",type=float,nargs=4,default=None)
     parser.add_argument("-v","--verbose",default=False,action="store_true")
+    parser.add_argument("-F","--functionoutput",default=False,action="store_true")
     parser_stop = parser.add_mutually_exclusive_group()
     parser_stop.add_argument("-M","--maxiterations",type=int,default=None)
     parser_stop.add_argument("-E","--maxerror",type=float,default=1e-10)
@@ -108,7 +116,7 @@ def main():
 
         # output
         if args.verbose:
-            print i,x
+            gnuplot_output(x,args.functionoutput)
     
     # final output:
     print x
