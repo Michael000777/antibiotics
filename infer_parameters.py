@@ -19,9 +19,9 @@ def iterate(i,imax,dx,errormax):
 
 def gnuplot_output(x,function = True):
     if function:
-        print 'growthrate(abconc) = {:.6e}*(1-exp({:6e}*(abconc-{:6e})))/(1+{:6e}*exp({:6e}*(abconc-{:6e})))'.format(x[0],x[3],x[2],x[1],x[3],x[2])
+        print 'growthrate(abconc) = {:.6e}*(1-exp({:6e}*(log(abconc)-{:6e})))/(1+{:6e}*exp({:6e}*(log(abconc)-{:6e})))'.format(x[0],x[3],x[2],x[1],x[3],x[2])
     else:
-        print '{:.6e}*(1-exp({:6e}*(x-{:6e})))/(1+{:6e}*exp({:6e}*(x-{:6e})))'.format(x[0],x[3],x[2],x[1],x[3],x[2])
+        print '{:.6e}*(1-exp({:6e}*(log(x)-{:6e})))/(1+{:6e}*exp({:6e}*(log(x)-{:6e})))'.format(x[0],x[3],x[2],x[1],x[3],x[2])
 
 
 def main():
@@ -69,6 +69,9 @@ def main():
 
     if not args.initialguess is None:
         x = np.array(args.initialguess,dtype=np.float)
+
+    if args.verbose:
+        gnuplot_output(x,args.functionoutput)
 
     # main iteration loop
     while iterate(i,args.maxiterations,dx,args.maxerror):
