@@ -6,26 +6,39 @@ import argparse
 import sys,math
 
 
-def sigm(logB,zMIC,kappa,gamma):
-    return a0*(1. - np.power(np.exp(logB)/zMIC,kappa))/(1. + np.power(np.exp(logB)/zMIC,kappa)/gamma)
+def sigm(logB,logM,kappa,gamma,aa0):
+    ekbm  = np.exp(kappa * (logB - logM))
+    return aa0*(1. - ekbm)/(1. + ekbm/gamma)
 
 
-def sigm_infer_a0(logB,zMIC,kappa,gamma,aa0):
-    return aa0*(1. - np.power(np.exp(logB)/zMIC,kappa))/(1. + np.power(np.exp(logB)/zMIC,kappa)/gamma)
-
-def sigm_red(logB,logM,kappa,gamma,aa0):
-    return aa0*(1. - np.exp(kappa * (logB-logM)))/(1. + np.exp(kappa * (logB - logM))/gamma)
+def jac(logB,logM,kappa,gamma,aa0):
+    ekbm  = np.exp(kappa * (logB - logM))
+    denom = np.power(ekbm + gamma,-2.)
+    return np.array([
+         aa0 * gamma * (1. + gamma) * kappa * ekbm * denom,
+        -aa0 * gamma * (1. + gamma) * (logB - logM) * ekbm * denom,
+         aa0 * ekbm * (1. - ekbm) * denom,
+        (1. - ekbm) / (1. + ekbm / gamma) ]).T
 
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-i","--infiles",nargs="*")
 parser.add_argument("-m","--maxConc",default=-1,type=float)
 parser.add_argument("-M","--maxfev",default=5000,type=int)
-parser.add_argument("-a","--fixA0",default=False,action="store_true")
+parser.add_argument("-I","--starting_guesses",type=float,default=[0,2,2,1],nargs=4)
+parser.add_argument("-w","--useWeights",action="store_true",default=False)
+parser.add_argument("-J","--useJacobian",action="store_true",default=False)
 args = parser.parse_args()
 
 b  = np.array([])
 gr = np.array([])
+
+if args.useWeights:     w = np.array([])
+else:                   w = None
+
+if args.useJacobian:    j = jac
+else:                   j = None
+
 for fn in args.infiles:
     try:
         data = np.genfromtxt(fn)
@@ -34,42 +47,37 @@ for fn in args.infiles:
 
     b  = np.concatenate([b,data[:,0]])
     gr = np.concatenate([gr,data[:,1]])
+    if args.useWeights:
+        w = np.concatenate([w,data[:,2]])
 
 if args.maxConc > 0:
+    if args.useWeights:
+        w = w[b < args.maxConc]
     gr = gr[b < args.maxConc]
     b  =  b[b < args.maxConc]
 
 
 lB  = np.log(b[b > 0])
 grL = gr[b>0]
+if args.useWeights:
+    w = w[b>0]
 
+p0 = np.array(args.starting_guesses)
+    
+fit,cov = curve_fit(sigm,lB,grL,p0 = p0,maxfev = args.maxfev, jac = j, sigma = w)
 
-#global a0
-
-#if args.fixA0:
-    #a0 = np.mean(gr[b==0])
-
-    #p0 = np.array([1e-2,2,2])
-    #fit,cov = curve_fit(sigm,lB,grL,p0=p0,maxfev = args.maxfev)
-
-#else:
-    #p0 = np.array([1e-2,2,2,2])
-    #fit,cov = curve_fit(sigm_infer_a0,lB,grL,p0=p0,maxfev = args.maxfev)
-    #a0 = fit[3]
-
-
-p0 = np.array([1e-2,2,2,2])
-
-fit,cov = curve_fit(sigm_red,lB,grL,p0 = p0,maxfev = args.maxfev)
-a0 = fit[2]
-
-print fit
+print "Fit parameters"
+print "  lMIC  = {:14.6e}".format(fit[0])
+print "  kappa = {:14.6e}".format(fit[1])
+print "  gamma = {:14.6e}".format(fit[2])
+print "  a0    = {:14.6e}".format(fit[3])
+print
+print "Covariance matrix"
 print cov
-
-print 'growthrate(B) = {:e} * (1 - (B/{:e})**{:e})/(1 + (B/{:e})**{:e}/{:e})'.format(a0,fit[0],fit[1],fit[0],fit[1],fit[2])
-
-
-#for a,b in zip(lB,grL):
-    #print a,b
-
+print
+print "Relevant experimental parameters"
+print "  MIC    = {:14.6e}".format(np.exp(fit[0]))
+print "  lambda = {:14.6e}".format(fit[1] * fit[2]/(1.+fit[2]))
+print 
+print 'growthrate(B) = {:e} * (1 - (B/{:e})**{:e})/(1 + (B/{:e})**{:e}/{:e})'.format(fit[3],np.exp(fit[0]),fit[1],np.exp(fit[0]),fit[1],fit[2])
 
