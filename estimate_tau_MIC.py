@@ -4,11 +4,8 @@ import numpy as np
 import argparse
 import openpyxl
 import cairo
-import time
-import dateutil
 import sys,math
-
-
+from skimage import measure
 
 def column_string(n):
     div=n
@@ -44,7 +41,7 @@ def rgb(color):
     return np.array([r/255.,g/255.,b/255.])
 
 
-def write_PNG(data,filename,colors = ['3465a4','ffffff','2e3436','eeeeec'],wellsize = 50, wellradius = 20, linewidth = 3):
+def write_PNG(data,filename,colors = ['3465a4','ffffff','2e3436','eeeeec'],wellsize = 50, wellradius = 20, linewidth = 3, dots = None):
     cFull   = rgb(colors[0])
     cEmpty  = rgb(colors[1])
     cBorder = rgb(colors[2])
@@ -72,11 +69,30 @@ def write_PNG(data,filename,colors = ['3465a4','ffffff','2e3436','eeeeec'],wells
             context.stroke_preserve()
             context.translate(0,wellsize)
         context.translate(wellsize,-data.shape[0] * wellsize)
+    
+    
+    if not dots is None:
+        for contour in dots:
+            for dot in contour:
+                print dot
+                context.new_path()
+                context.move_to((dot[0] + .5) * wellsize, (dot[1] + .5) * wellsize)
+                context.arc(0,0,3,0,2*math.pi)
+                context.set_source_rgb(1,0,0)
+                context.fill_preserve()
+                
 
     CairoImage.write_to_png(filename)
     
 
-
+def compute_growth_nogrowth_transition(data,threshold = .5):
+    if np.any(data < 0) or np.any(data > 1):
+        data = rescale(data)
+    
+    transition = measure.find_contours(data,threshold)
+    
+    return transition
+    
 
 
 def main():
@@ -84,6 +100,7 @@ def main():
 
     parser = argparse.ArgumentParser()
     parser.add_argument("-i","--infiles",nargs="*")
+    parser.add_argument("-P","--noImages",default=False,action="store_true")
     args = parser.parse_args()
     
     for fn in args.infiles:
@@ -96,12 +113,15 @@ def main():
         for sheet in [s for s in data if not s.title in ignoresheets]:
             print sheet.title
             
-            outfile = sheet.title.replace(' ','_') + '.png'
             
             growth  = read_sheet(sheet)
             growth  = rescale(growth)
             
-            write_PNG(growth,outfile)
+            dots = compute_growth_nogrowth_transition(growth)
+            
+            if not args.noImages:
+                outfile = sheet.title.replace(' ','_') + '.png'
+                write_PNG(growth,outfile,dots = dots)
             
 
 
