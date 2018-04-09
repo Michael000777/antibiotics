@@ -6,6 +6,25 @@ import openpyxl
 import cairo
 import sys,math
 from skimage import measure
+from scipy.optimize import curve_fit
+
+def MLSQ(x,y):
+    n   = len(x)
+    sx  = np.sum(x)
+    sy  = np.sum(y)
+    sxx = np.dot(x,x)
+    sxy = np.dot(x,y)
+    syy = np.dot(y,y)
+    
+    denom  = (n*sxx-sx*sx)
+    b      = (n*sxy - sx*sy)/denom
+    a      = (sy-b*sx)/n
+    estim  = np.array([a,b],dtype=np.float)
+
+    sigma2 = syy + n*a*a + b*b*sxx + 2*a*b*sx - 2*a*sy - 2*b*sxy
+    cov    = sigma2 / denom * np.array([[sxx,-sx],[-sx,n]],dtype=np.float)
+
+    return estim,cov
 
 def column_string(n):
     div=n
@@ -41,7 +60,7 @@ def rgb(color):
     return np.array([r/255.,g/255.,b/255.])
 
 
-def write_PNG(data,filename,colors = ['3465a4','ffffff','2e3436','eeeeec'],wellsize = 50, wellradius = 20, linewidth = 3, dots = None):
+def write_PNG(data,filename,colors = ['3465a4','ffffff','2e3436','eeeeec'],wellsize = 50, wellradius = 20, linewidth = 3):
     cFull   = rgb(colors[0])
     cEmpty  = rgb(colors[1])
     cBorder = rgb(colors[2])
@@ -70,18 +89,6 @@ def write_PNG(data,filename,colors = ['3465a4','ffffff','2e3436','eeeeec'],wells
             context.translate(0,wellsize)
         context.translate(wellsize,-data.shape[0] * wellsize)
     
-    
-    if not dots is None:
-        for contour in dots:
-            for dot in contour:
-                print dot
-                context.new_path()
-                context.move_to((dot[0] + .5) * wellsize, (dot[1] + .5) * wellsize)
-                context.arc(0,0,3,0,2*math.pi)
-                context.set_source_rgb(1,0,0)
-                context.fill_preserve()
-                
-
     CairoImage.write_to_png(filename)
     
 
@@ -90,9 +97,57 @@ def compute_growth_nogrowth_transition(data,threshold = .5):
         data = rescale(data)
     
     transition = measure.find_contours(data,threshold)
+    p = list()
+    for cont in transition:
+        for point in cont:
+            p.append(point)
     
-    return transition
     
+    return np.vstack(p)
+    
+def flatten_thresholds(contours,filename):
+    p = list()
+    for cont in contours:
+        for c in cont:
+            p.append(c)
+    return np.vstack(p)
+
+def read_initial_conditions(data,sheetname,xab = 4, yab = 14, xcells = 4, ycells = 3, width = 12, height = 8):
+    if sheetname in data.sheetnames:
+        return read_sheet(data[sheetname],xab,yab),read_sheet(data[sheetname],xcells,ycells)
+    else:
+        raise KeyError
+
+def convert_transitions_to_numbers(points,xdata,ydata):
+    ret = list()
+    for point in points:
+        x_index = int(np.floor(point[0]))
+        x_ratio = point[0] - x_index
+        
+        y_index = int(np.floor(point[1]))
+        y_ratio = point[1] - y_index
+
+        if x_index + 1 < len(xdata) and x_ratio > 0:
+            x = np.exp(np.log(xdata[x_index,y_index]) * (1-x_ratio) + np.log(xdata[x_index+1,y_index]) * x_ratio)
+        else:
+            x = xdata[x_index,y_index]
+        
+        
+        if y_index + 1 < len(ydata) and y_ratio > 0:
+            y = np.exp(np.log(ydata[x_index,y_index]) * (1-y_ratio) + np.log(ydata[x_index,y_index+1]) * y_ratio)
+        else:
+            y = ydata[x_index,y_index]
+        
+        ret.append(np.array([x,y]))
+        
+    return np.vstack(ret)
+
+
+def fitfunc(logb,lambdatau,logsmic):
+    return 1 + lambdatau * (logb - logsmic)
+
+def estimate_Tau_sMIC(initialconditions):
+    return None
 
 
 def main():
@@ -110,18 +165,26 @@ def main():
             raise IOError("could not open file")
     
         print fn
+        
+        abconc,celldens = read_initial_conditions(data,"Plate design")
+        
+        #print abconc
+        #print celldens
+        
         for sheet in [s for s in data if not s.title in ignoresheets]:
             print sheet.title
-            
+            baseoutfile = sheet.title.replace(' ','_')
             
             growth  = read_sheet(sheet)
             growth  = rescale(growth)
             
-            dots = compute_growth_nogrowth_transition(growth)
+            transitions = compute_growth_nogrowth_transition(growth)
+            initialconditions = convert_transitions_to_numbers(transitions,abconc,celldens)
+            np.savetxt(baseoutfile + '.txt',initialconditions)
+            
             
             if not args.noImages:
-                outfile = sheet.title.replace(' ','_') + '.png'
-                write_PNG(growth,outfile,dots = dots)
+                write_PNG(growth,baseoutfile + '.png')
             
 
 

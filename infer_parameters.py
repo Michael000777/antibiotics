@@ -17,11 +17,16 @@ def iterate(i,imax,dx,errormax):
     return r
 
 
-def gnuplot_output(x,function = True):
-    if function:
-        print 'growthrate(abconc) = {:.6e}*(1-exp({:6e}*(log(abconc)-{:6e})))/(1+{:6e}*exp({:6e}*(log(abconc)-{:6e})))'.format(x[0],x[3],x[2],x[1],x[3],x[2])
+def gnuplot_output(x,function = True,onlyvalues = False,i=None):
+    if onlyvalues:
+        if not i is None:
+            print '{:4d}'.format(i),
+        print '{:.6e} {:.6e} {:.6e} {:.6e}'.format(*x)
     else:
-        print '{:.6e}*(1-exp({:6e}*(log(x)-{:6e})))/(1+{:6e}*exp({:6e}*(log(x)-{:6e})))'.format(x[0],x[3],x[2],x[1],x[3],x[2])
+        if function:
+            print 'growthrate(abconc) = {:.6e}*(1-exp({:6e}*(log(abconc)-{:6e})))/(1+{:6e}*exp({:6e}*(log(abconc)-{:6e})))'.format(x[0],x[3],x[2],x[1],x[3],x[2])
+        else:
+            print '{:.6e}*(1-exp({:6e}*(log(x)-{:6e})))/(1+{:6e}*exp({:6e}*(log(x)-{:6e})))'.format(x[0],x[3],x[2],x[1],x[3],x[2])
 
 
 def main():
@@ -34,6 +39,7 @@ def main():
     parser.add_argument("-I","--initialguess",type=float,nargs=4,default=None)
     parser.add_argument("-v","--verbose",default=False,action="store_true")
     parser.add_argument("-F","--functionoutput",default=False,action="store_true")
+    parser.add_argument("-V","--onlyvalues",default=False,action="store_true")
     parser_stop = parser.add_mutually_exclusive_group()
     parser_stop.add_argument("-M","--maxiterations",type=int,default=None)
     parser_stop.add_argument("-E","--maxerror",type=float,default=1e-10)
@@ -71,7 +77,7 @@ def main():
         x = np.array(args.initialguess,dtype=np.float)
 
     if args.verbose:
-        gnuplot_output(x,args.functionoutput)
+        gnuplot_output(x,args.functionoutput,args.onlyvalues,0)
 
     # main iteration loop
     while iterate(i,args.maxiterations,dx,args.maxerror):
@@ -119,10 +125,10 @@ def main():
 
         # output
         if args.verbose:
-            gnuplot_output(x,args.functionoutput)
+            gnuplot_output(x,args.functionoutput,args.onlyvalues,i)
     
     # final output:
-    print x
+    #gnuplot_output(x,args.functionoutput,args.onlyvalues)
 
 
 # run script
