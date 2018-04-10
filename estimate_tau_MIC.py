@@ -5,6 +5,10 @@ import argparse
 import openpyxl
 import cairo
 import sys,math
+import uncertainties
+
+from uncertainties.umath import exp as uexp
+
 from skimage import measure
 from scipy.optimize import curve_fit
 
@@ -146,8 +150,22 @@ def convert_transitions_to_numbers(points,xdata,ydata):
 def fitfunc(logb,lambdatau,logsmic):
     return 1 + lambdatau * (logb - logsmic)
 
-def estimate_Tau_sMIC(initialconditions):
-    return None
+def estimate_Tau_sMIC(initialconditions,ABlambda = 1):
+    # theory predicts: N > 1 + lambda/tau LOG(B/sMIC)
+    Nm1 = initialconditions[:,1] - 1
+    lB  = np.log(initialconditions[:,0])
+    
+    fit,cov = MLSQ(lB,Nm1)
+    
+    ret = uncertainties.correlated_values(fit,cov)
+    
+    u_tau = ABlambda/ret[0]
+    u_sMIC = uexp(-ret[1]/ret[0])
+    
+    tau  = np.array([uncertainties.nominal_value(u_tau), uncertainties.std_dev(u_tau)])
+    sMIC = np.array([uncertainties.nominal_value(u_sMIC),uncertainties.std_dev(u_sMIC)])
+    
+    return tau,sMIC
 
 
 def main():
@@ -156,7 +174,12 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("-i","--infiles",nargs="*")
     parser.add_argument("-P","--noImages",default=False,action="store_true")
+    parser.add_argument("-T","--growthThreshold",type=float,default=.5)
+    parser.add_argument("-L","--AB_lambda",type=float,default=1)
+    parser.add_argument("-l","--AB_lambdaStdDev",type=float,default=0)
     args = parser.parse_args()
+    
+    ABlambda = uncertainties.ufloat(args.AB_lambda,args.AB_lambdaStdDev)
     
     for fn in args.infiles:
         try:
@@ -164,7 +187,7 @@ def main():
         except:
             raise IOError("could not open file")
     
-        print fn
+        print "# {:s}".format(fn)
         
         abconc,celldens = read_initial_conditions(data,"Plate design")
         
@@ -172,19 +195,22 @@ def main():
         #print celldens
         
         for sheet in [s for s in data if not s.title in ignoresheets]:
-            print sheet.title
-            baseoutfile = sheet.title.replace(' ','_')
+            basename = sheet.title.replace(' ','_')
             
             growth  = read_sheet(sheet)
             growth  = rescale(growth)
             
-            transitions = compute_growth_nogrowth_transition(growth)
+            transitions = compute_growth_nogrowth_transition(growth,threshold = args.growthThreshold)
             initialconditions = convert_transitions_to_numbers(transitions,abconc,celldens)
-            np.savetxt(baseoutfile + '.txt',initialconditions)
+            
+            tau,smic = estimate_Tau_sMIC(initialconditions)
+            print '{:40s} {:14.6e} {:14.6e} {:14.6e} {:14.6e}'.format(basename,tau[0],tau[1],smic[0],smic[1])
+            
+            np.savetxt(basename + '.txt',initialconditions)
             
             
             if not args.noImages:
-                write_PNG(growth,baseoutfile + '.png')
+                write_PNG(growth,basename + '.png')
             
 
 
