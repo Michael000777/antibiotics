@@ -12,6 +12,11 @@ from uncertainties.umath import exp as uexp
 from skimage import measure
 from scipy.optimize import curve_fit
 
+
+# *****************************************************************
+# ** helper routines
+# *****************************************************************
+
 def MLSQ(x,y):
     n   = len(x)
     sx  = np.sum(x)
@@ -30,6 +35,7 @@ def MLSQ(x,y):
 
     return estim,cov
 
+
 def column_string(n):
     div=n
     string=""
@@ -41,28 +47,111 @@ def column_string(n):
     return string
 
 
-def read_sheet(sheet,x0 = 2, y0 = 2, width = 12, height = 8):
-    return np.array([[sheet['{:s}{:d}'.format(column_string(i),j)].value for i in range(x0,x0+width)] for j in range(y0,y0+height)],dtype=np.float)
-
-
-def rescale(g,logscale=False,logmin=-20):
-    
-    if logscale:
-        r = np.log(g)
-        r[r<logmin] = 0
-    else:
-        r = g[:,:]
-        
-    r = (r - np.min(r))/(np.max(r) - np.min(r))
-    return r
-
-
 def rgb(color):
     r = int(color[0:2],16)
     g = int(color[2:4],16)
     b = int(color[4:6],16)
     return np.array([r/255.,g/255.,b/255.])
 
+
+
+# *****************************************************************
+# ** read data
+# *****************************************************************
+
+def read_sheet(sheet,x0 = 2, y0 = 2, width = 12, height = 8):
+    return np.array([[sheet['{:s}{:d}'.format(column_string(i),j)].value for i in range(x0,x0+width)] for j in range(y0,y0+height)],dtype=np.float)
+
+
+def read_initial_conditions(data,sheetname,xab = 4, yab = 14, xcells = 4, ycells = 3, width = 12, height = 8):
+    if sheetname in data.sheetnames:
+        return read_sheet(data[sheetname],xab,yab),read_sheet(data[sheetname],xcells,ycells)
+    else:
+        raise KeyError
+
+
+
+
+# *****************************************************************
+# ** process data
+# *****************************************************************
+
+def rescale(g,logscale=False,logmin=-20):
+    if logscale:
+        r = np.log(g)
+        r[r<logmin] = 0
+    else:
+        r = g[:,:]
+    r = (r - np.min(r))/(np.max(r) - np.min(r))
+    return r
+
+
+def compute_growth_nogrowth_transition(data,threshold = .5):
+    if np.any(data < 0) or np.any(data > 1):
+        data = rescale(data)
+    transition = measure.find_contours(data,threshold)
+    p = list()
+    for cont in transition:
+        for point in cont:
+            p.append(point)
+    return np.vstack(p)
+
+    
+def flatten_thresholds(contours,filename):
+    p = list()
+    for cont in contours:
+        for c in cont:
+            p.append(c)
+    return np.vstack(p)
+
+
+def convert_transitions_to_numbers(points,xdata,ydata):
+    ret = list()
+    for point in points:
+        x_index = int(np.floor(point[0]))
+        x_ratio = point[0] - x_index
+        
+        y_index = int(np.floor(point[1]))
+        y_ratio = point[1] - y_index
+
+        if x_index + 1 < len(xdata) and x_ratio > 0:
+            x = np.exp(np.log(xdata[x_index,y_index]) * (1-x_ratio) + np.log(xdata[x_index+1,y_index]) * x_ratio)
+        else:
+            x = xdata[x_index,y_index]
+        
+        
+        if y_index + 1 < len(ydata) and y_ratio > 0:
+            y = np.exp(np.log(ydata[x_index,y_index]) * (1-y_ratio) + np.log(ydata[x_index,y_index+1]) * y_ratio)
+        else:
+            y = ydata[x_index,y_index]
+        
+        ret.append(np.array([x,y]))
+        
+    return np.vstack(ret)
+
+
+def estimate_Tau_sMIC(initialconditions,ABlambda = 1):
+    # theory predicts: N > 1 + lambda/tau LOG(B/sMIC)
+    Nm1 = initialconditions[:,1] - 1
+    lB  = np.log(initialconditions[:,0])
+    
+    fit,cov = MLSQ(lB,Nm1)
+    
+    ret = uncertainties.correlated_values(fit,cov)
+    
+    u_tau = ABlambda/ret[1]
+    u_sMIC = uexp(-ret[0]/ret[1])
+    
+    tau  = np.array([uncertainties.nominal_value(u_tau), uncertainties.std_dev(u_tau)])
+    sMIC = np.array([uncertainties.nominal_value(u_sMIC),uncertainties.std_dev(u_sMIC)])
+    
+    return tau,sMIC
+
+
+
+# *****************************************************************
+# ** write data
+# *****************************************************************
 
 def write_PNG(data,filename,colors = ['3465a4','ffffff','2e3436','eeeeec'],wellsize = 50, wellradius = 20, linewidth = 3):
     cFull   = rgb(colors[0])
@@ -96,119 +185,59 @@ def write_PNG(data,filename,colors = ['3465a4','ffffff','2e3436','eeeeec'],wells
     CairoImage.write_to_png(filename)
     
 
-def compute_growth_nogrowth_transition(data,threshold = .5):
-    if np.any(data < 0) or np.any(data > 1):
-        data = rescale(data)
-    
-    transition = measure.find_contours(data,threshold)
-    p = list()
-    for cont in transition:
-        for point in cont:
-            p.append(point)
-    
-    
-    return np.vstack(p)
-    
-def flatten_thresholds(contours,filename):
-    p = list()
-    for cont in contours:
-        for c in cont:
-            p.append(c)
-    return np.vstack(p)
 
-def read_initial_conditions(data,sheetname,xab = 4, yab = 14, xcells = 4, ycells = 3, width = 12, height = 8):
-    if sheetname in data.sheetnames:
-        return read_sheet(data[sheetname],xab,yab),read_sheet(data[sheetname],xcells,ycells)
-    else:
-        raise KeyError
-
-def convert_transitions_to_numbers(points,xdata,ydata):
-    ret = list()
-    for point in points:
-        x_index = int(np.floor(point[0]))
-        x_ratio = point[0] - x_index
-        
-        y_index = int(np.floor(point[1]))
-        y_ratio = point[1] - y_index
-
-        if x_index + 1 < len(xdata) and x_ratio > 0:
-            x = np.exp(np.log(xdata[x_index,y_index]) * (1-x_ratio) + np.log(xdata[x_index+1,y_index]) * x_ratio)
-        else:
-            x = xdata[x_index,y_index]
-        
-        
-        if y_index + 1 < len(ydata) and y_ratio > 0:
-            y = np.exp(np.log(ydata[x_index,y_index]) * (1-y_ratio) + np.log(ydata[x_index,y_index+1]) * y_ratio)
-        else:
-            y = ydata[x_index,y_index]
-        
-        ret.append(np.array([x,y]))
-        
-    return np.vstack(ret)
-
-
-def fitfunc(logb,lambdatau,logsmic):
-    return 1 + lambdatau * (logb - logsmic)
-
-def estimate_Tau_sMIC(initialconditions,ABlambda = 1):
-    # theory predicts: N > 1 + lambda/tau LOG(B/sMIC)
-    Nm1 = initialconditions[:,1] - 1
-    lB  = np.log(initialconditions[:,0])
-    
-    fit,cov = MLSQ(lB,Nm1)
-    
-    ret = uncertainties.correlated_values(fit,cov)
-    
-    u_tau = ABlambda/ret[0]
-    u_sMIC = uexp(-ret[1]/ret[0])
-    
-    tau  = np.array([uncertainties.nominal_value(u_tau), uncertainties.std_dev(u_tau)])
-    sMIC = np.array([uncertainties.nominal_value(u_sMIC),uncertainties.std_dev(u_sMIC)])
-    
-    return tau,sMIC
-
+# *****************************************************************
+# ** main
+# *****************************************************************
 
 def main():
     ignoresheets = ["Plate design"]
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("-i","--infiles",nargs="*")
-    parser.add_argument("-P","--noImages",default=False,action="store_true")
-    parser.add_argument("-T","--growthThreshold",type=float,default=.5)
-    parser.add_argument("-L","--AB_lambda",type=float,default=1)
-    parser.add_argument("-l","--AB_lambdaStdDev",type=float,default=0)
+    parser.add_argument("-i", "--infiles",          nargs = "*")
+    parser.add_argument("-T", "--growthThreshold",  type = float, default = 0.1)
+    
+    parser.add_argument("-P", "--noImages",         default = False, action = "store_true")
+    parser.add_argument("-t", "--noThresholdFiles", default = False, action = "store_true")
+    
+    parser.add_argument("-L", "--AB_lambda",        type = float, default = 1)
+    parser.add_argument("-l", "--AB_lambdaStdDev" , type = float, default = 0)
     args = parser.parse_args()
     
+    # use uncertainties package to compute error propagation
     ABlambda = uncertainties.ufloat(args.AB_lambda,args.AB_lambdaStdDev)
     
     for fn in args.infiles:
         try:
             data = openpyxl.load_workbook(fn)
+            print "# {:s}".format(fn)
         except:
             raise IOError("could not open file")
     
-        print "# {:s}".format(fn)
         
+        # read plate design, ie initial conditions for cell numbers and antibiotic concentrations
         abconc,celldens = read_initial_conditions(data,"Plate design")
         
-        #print abconc
-        #print celldens
-        
+        # iterate over all sheets (except the one with initial conditions)
         for sheet in [s for s in data if not s.title in ignoresheets]:
             basename = sheet.title.replace(' ','_')
             
+            # read data into numpy and rescale
             growth  = read_sheet(sheet)
             growth  = rescale(growth)
             
+            # get transitions from growth to nogrowth and get the appropriate initial conditions
             transitions = compute_growth_nogrowth_transition(growth,threshold = args.growthThreshold)
             initialconditions = convert_transitions_to_numbers(transitions,abconc,celldens)
             
+            # estimate the curve between growth and nogrowth with the analytical prediction
+            # N0 > 1 + lambda/tau LOG(B0/sMIC)
             tau,smic = estimate_Tau_sMIC(initialconditions)
+
+            # output
             print '{:40s} {:14.6e} {:14.6e} {:14.6e} {:14.6e}'.format(basename,tau[0],tau[1],smic[0],smic[1])
-            
-            np.savetxt(basename + '.txt',initialconditions)
-            
-            
+            if not args.noThresholdFiles:
+                np.savetxt(basename + '.txt',initialconditions)
             if not args.noImages:
                 write_PNG(growth,basename + '.png')
             
