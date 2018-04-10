@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 
 from __future__ import print_function
 
@@ -10,7 +11,6 @@ import sys,math
 import uncertainties
 
 from uncertainties.umath import exp as uexp
-
 from skimage import measure
 from scipy.optimize import curve_fit
 
@@ -19,7 +19,7 @@ from scipy.optimize import curve_fit
 # ** helper routines
 # *****************************************************************
 
-def MLSQ(x,y):
+def LMSQ(x,y):
     n   = len(x)
     sx  = np.sum(x)
     sy  = np.sum(y)
@@ -137,7 +137,7 @@ def estimate_Tau_sMIC(initialconditions,ABlambda = 1):
     Nm1 = initialconditions[:,1] - 1
     lB  = np.log(initialconditions[:,0])
     
-    fit,cov = MLSQ(lB,Nm1)
+    fit,cov = LMSQ(lB,Nm1)
     
     ret = uncertainties.correlated_values(fit,cov)
     
