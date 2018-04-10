@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+from __future__ import print_function
+
 import numpy as np
 import argparse
 import openpyxl
@@ -210,10 +212,11 @@ def main():
     for fn in args.infiles:
         try:
             data = openpyxl.load_workbook(fn)
-            print "# {:s}".format(fn)
         except:
             raise IOError("could not open file")
     
+        print("# File:            {:s}".format(fn))
+        print("# Threshold value: {:f}".format(args.growthThreshold))
         
         # read plate design, ie initial conditions for cell numbers and antibiotic concentrations
         abconc,celldens = read_initial_conditions(data,"Plate design")
@@ -235,7 +238,7 @@ def main():
             tau,smic = estimate_Tau_sMIC(initialconditions)
 
             # output
-            print '{:40s} {:14.6e} {:14.6e} {:14.6e} {:14.6e}'.format(basename,tau[0],tau[1],smic[0],smic[1])
+            print("{:40s} {:14.6e} {:14.6e} {:14.6e} {:14.6e}".format(basename,tau[0],tau[1],smic[0],smic[1]))
             if not args.noThresholdFiles:
                 np.savetxt(basename + '.txt',initialconditions)
             if not args.noImages:
