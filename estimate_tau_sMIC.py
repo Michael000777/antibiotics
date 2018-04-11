@@ -185,7 +185,17 @@ def write_PNG(data,filename,colors = ['3465a4','ffffff','2e3436','eeeeec'],wells
         context.translate(wellsize,-data.shape[0] * wellsize)
     
     CairoImage.write_to_png(filename)
-    
+
+
+def write_data(filename,data,xdata,ydata):
+    fp = open(filename,"w")
+    abconc = xdata[0]
+    celldens = ydata[:,0]
+    for i,x in enumerate(celldens):
+        for j,y in enumerate(abconc):
+            fp.write('{} {} {}\n'.format(x,y,data[i,j]))
+        fp.write('\n')
+    fp.close()
 
 
 # *****************************************************************
@@ -197,10 +207,11 @@ def main():
 
     parser = argparse.ArgumentParser()
     parser.add_argument("-i", "--infiles",          nargs = "*")
-    parser.add_argument("-T", "--growthThreshold",  type = float, default = 0.1)
+    parser.add_argument("-t", "--growthThreshold",  type = float, default = 0.1)
     
     parser.add_argument("-P", "--noImages",         default = False, action = "store_true")
-    parser.add_argument("-t", "--noThresholdFiles", default = False, action = "store_true")
+    parser.add_argument("-T", "--noThresholdFiles", default = False, action = "store_true")
+    parser.add_argument("-F", "--noDataFiles",      default = False, action = "store_true")
     
     parser.add_argument("-L", "--AB_lambda",        type = float, default = 1)
     parser.add_argument("-l", "--AB_lambdaStdDev" , type = float, default = 0)
@@ -229,6 +240,8 @@ def main():
             growth  = read_sheet(sheet)
             growth  = rescale(growth)
             
+            
+            
             # get transitions from growth to nogrowth and get the appropriate initial conditions
             transitions = compute_growth_nogrowth_transition(growth,threshold = args.growthThreshold)
             initialconditions = convert_transitions_to_numbers(transitions,abconc,celldens)
@@ -239,6 +252,8 @@ def main():
 
             # output
             print("{:40s} {:14.6e} {:14.6e} {:14.6e} {:14.6e}".format(basename,tau[0],tau[1],smic[0],smic[1]))
+            if not args.noDataFiles:
+                write_data(basename + '_data.txt',growth,abconc,celldens)
             if not args.noThresholdFiles:
                 np.savetxt(basename + '.txt',initialconditions)
             if not args.noImages:
