@@ -57,6 +57,13 @@ def rgb(color):
     return np.array([r/255.,g/255.,b/255.])
 
 
+def avg(values,geom = True):
+    if len(values) > 0:
+        if geom:    return np.power(np.product(values),1./len(values))
+        else:       return np.mean(values)
+    else:
+        raise ValueError
+
 
 # *****************************************************************
 # ** read data
@@ -132,9 +139,6 @@ def compute_growth_nogrowth_transition(data,threshold = .1,xdata = None,ydata = 
 
 
 def compute_growth_nogrowth_transition2(data,threshold = .1, xdata = None,ydata = None,geom = True):
-    def avg(val1,val2,geom = True):
-        if geom:    return np.sqrt(val1 * val2)
-        else:       return np.mean(np.array([val1,val2]))
     if xdata is None or ydata is None:
         return None
     else:
@@ -142,12 +146,12 @@ def compute_growth_nogrowth_transition2(data,threshold = .1, xdata = None,ydata 
         for i,j in itertools.product(np.arange(np.shape(data)[0]),np.arange(np.shape(data)[1])):
             try:
                 if (data[i,j] - threshold) * (data[i+1,j] - threshold) < 0:
-                    r.append(np.array([avg(xdata[i,j],xdata[i+1,j],geom),avg(ydata[i,j],ydata[i+1,j],geom)]))
+                    r.append(np.array([avg([xdata[i,j],xdata[i+1,j]],geom),avg([ydata[i,j],ydata[i+1,j]],geom)]))
             except:
                 pass
             try:
                 if (data[i,j] - threshold) * (data[i,j+1] - threshold) < 0:
-                    r.append(np.array([avg(xdata[i,j],xdata[i,j+1],geom),avg(ydata[i,j],ydata[i,j+1],geom)]))
+                    r.append(np.array([avg([xdata[i,j],xdata[i,j+1]],geom),avg([ydata[i,j],ydata[i,j+1]],geom)]))
             except:
                 pass
         return np.vstack(r)
@@ -172,6 +176,18 @@ def estimate_Tau_sMIC(initialconditions,ABlambda = 1):
     sMIC = np.array([uncertainties.nominal_value(u_sMIC),uncertainties.std_dev(u_sMIC)])
     
     return tau,sMIC
+
+
+def estimate_Tau_sMIC2(initialconditions,ABlambda = 1):
+    mincelldens = np.min(initialconditions[:,1])
+    smic = avg([m[0] for m in initialconditions if m[1] == mincelldens])
+
+    lBM = np.log(initialconditions[:,0]/smic)
+    n   = initialconditions[:,1]
+    
+    tau = np.sum(lBM*lBM/n)/ ((np.sum(lBM) - np.sum(lBM/n)) * ABlambda)
+    
+    return [tau,np.nan],[smic,np.nan]
 
 
 
@@ -269,7 +285,7 @@ def main():
             
             # estimate the curve between growth and nogrowth with the analytical prediction
             # N0 > 1 + lambda/tau LOG(B0/sMIC)
-            tau,smic = estimate_Tau_sMIC(initialconditions)
+            tau,smic = estimate_Tau_sMIC2(initialconditions)
 
             # output
             print("{:40s} {:14.6e} {:14.6e} {:14.6e} {:14.6e}".format(basename,tau[0],tau[1],smic[0],smic[1]))
