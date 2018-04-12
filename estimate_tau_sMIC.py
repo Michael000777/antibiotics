@@ -160,7 +160,7 @@ def compute_growth_nogrowth_transition2(data,threshold = .1, xdata = None,ydata 
     
 
 
-def estimate_Tau_sMIC(initialconditions,ABlambda = 1):
+def estimate_Tau_sMIC_linearFit(initialconditions,ABlambda = 1):
     # theory predicts: N > 1 + lambda/tau LOG(B/sMIC)
     Nm1 = initialconditions[:,1] - 1
     lB  = np.log(initialconditions[:,0])
@@ -178,16 +178,16 @@ def estimate_Tau_sMIC(initialconditions,ABlambda = 1):
     return tau,sMIC
 
 
-def estimate_Tau_sMIC2(initialconditions,ABlambda = 1):
+def estimate_Tau_sMIC_singleParameter(initialconditions,ABlambda = 1):
     mincelldens = np.min(initialconditions[:,1])
     smic = avg([m[0] for m in initialconditions if m[1] == mincelldens])
 
     lBM = np.log(initialconditions[:,0]/smic)
     n   = initialconditions[:,1]
     
-    tau = np.sum(lBM*lBM/n)/ ((np.sum(lBM) - np.sum(lBM/n)) * ABlambda)
-    
-    return [tau,np.nan],[smic,np.nan]
+    tau1 = np.sum(lBM*lBM/n)/ ((np.sum(lBM) - np.sum(lBM/n)) * ABlambda)
+    tau2 = np.dot(n-1,lBM)/(np.dot(n-1,n-1) * ABlambda)
+    return tau1,tau2,smic
 
 
 
@@ -285,10 +285,12 @@ def main():
             
             # estimate the curve between growth and nogrowth with the analytical prediction
             # N0 > 1 + lambda/tau LOG(B0/sMIC)
-            tau,smic = estimate_Tau_sMIC2(initialconditions)
+            tau1,smic1 = estimate_Tau_sMIC_linearFit(initialconditions)
+
+            tau2,tau3,smic2 = estimate_Tau_sMIC_singleParameter(initialconditions)
 
             # output
-            print("{:40s} {:14.6e} {:14.6e} {:14.6e} {:14.6e}".format(basename,tau[0],tau[1],smic[0],smic[1]))
+            print("{:40s} {:14.6e} {:14.6e} {:14.6e} {:14.6e} {:14.6e} {:14.6e} {:14.6e}".format(basename,tau1[0],tau1[1],smic1[0],smic1[1],tau2,tau3,smic2))
             if not args.noDataFiles:
                 write_data(basename + '_data.txt',growth,abconc,celldens)
             if not args.noThresholdFiles:
