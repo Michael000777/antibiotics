@@ -9,6 +9,7 @@ import openpyxl
 import cairo
 import sys,math
 import uncertainties
+import itertools
 
 from uncertainties.umath import exp as uexp
 from skimage import measure
@@ -88,24 +89,6 @@ def rescale(g,logscale=False,logmin=-20):
     return r
 
 
-def compute_growth_nogrowth_transition(data,threshold = .5):
-    if np.any(data < 0) or np.any(data > 1):
-        data = rescale(data)
-    transition = measure.find_contours(data,threshold)
-    p = list()
-    for cont in transition:
-        for point in cont:
-            p.append(point)
-    return np.vstack(p)
-
-    
-def flatten_thresholds(contours,filename):
-    p = list()
-    for cont in contours:
-        for c in cont:
-            p.append(c)
-    return np.vstack(p)
-
 
 def convert_transitions_to_numbers(points,xdata,ydata):
     ret = list()
@@ -130,6 +113,47 @@ def convert_transitions_to_numbers(points,xdata,ydata):
         ret.append(np.array([x,y]))
         
     return np.vstack(ret)
+
+
+
+def compute_growth_nogrowth_transition(data,threshold = .1,xdata = None,ydata = None, geom = True):
+    if np.any(data < 0) or np.any(data > 1):
+        data = rescale(data)
+    transition = measure.find_contours(data,threshold)
+    p = list()
+    for cont in transition:
+        for point in cont:
+            p.append(point)
+    
+    p = np.vstack(p)
+    p = convert_transitions_to_numbers(p,xdata,ydata)
+            
+    return p
+
+
+def compute_growth_nogrowth_transition2(data,threshold = .1, xdata = None,ydata = None,geom = True):
+    def avg(val1,val2,geom = True):
+        if geom:    return np.sqrt(val1 * val2)
+        else:       return np.mean(np.array([val1,val2]))
+    if xdata is None or ydata is None:
+        return None
+    else:
+        r=list()
+        for i,j in itertools.product(np.arange(np.shape(data)[0]),np.arange(np.shape(data)[1])):
+            try:
+                if (data[i,j] - threshold) * (data[i+1,j] - threshold) < 0:
+                    r.append(np.array([avg(xdata[i,j],xdata[i+1,j],geom),avg(ydata[i,j],ydata[i+1,j],geom)]))
+            except:
+                pass
+            try:
+                if (data[i,j] - threshold) * (data[i,j+1] - threshold) < 0:
+                    r.append(np.array([avg(xdata[i,j],xdata[i,j+1],geom),avg(ydata[i,j],ydata[i,j+1],geom)]))
+            except:
+                pass
+        return np.vstack(r)
+
+
+    
 
 
 def estimate_Tau_sMIC(initialconditions,ABlambda = 1):
@@ -240,11 +264,8 @@ def main():
             growth  = read_sheet(sheet)
             growth  = rescale(growth)
             
-            
-            
             # get transitions from growth to nogrowth and get the appropriate initial conditions
-            transitions = compute_growth_nogrowth_transition(growth,threshold = args.growthThreshold)
-            initialconditions = convert_transitions_to_numbers(transitions,abconc,celldens)
+            initialconditions = compute_growth_nogrowth_transition2(growth,threshold = args.growthThreshold,xdata = abconc,ydata = celldens)
             
             # estimate the curve between growth and nogrowth with the analytical prediction
             # N0 > 1 + lambda/tau LOG(B0/sMIC)
