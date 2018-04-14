@@ -1,0 +1,155 @@
+#!/usr/bin/env python
+
+import numpy as np
+import argparse
+import sys,math
+
+import openpyxl
+
+class PlateReaderData(object):
+    def __init__(self,**kwargs):
+
+        self.__infilenames = kwargs.get("infiles",[])
+        self.__ignoresheetsparameter = kwargs.get("ignoresheets",[])
+
+        self.extract_figure_file_parameters(kwargs)
+
+        self.__designdata = list()
+        self.__designtitle = list()
+
+        self.__data = list()
+        self.__filenames = list()
+        self.__sheetnames = list()
+        
+        self.__read_coordinates = { 'x0':kwargs.get("xstart",2),
+                                    'y0':kwargs.get("ystart",2),
+                                    'xwidth':kwargs.get("xwidth",12),
+                                    'yheight':kwargs.get("yheight",8) }
+        
+        self.__ignoresheets = ['Plate Design*']
+        if len(self.__ignoresheetsparameter) > 0:
+            self.__ignoresheets += self.__ignoresheetsparameter
+            
+        for fn in self.__infilenames:
+            try:
+                data = openpyxl.load_workbook(fn)
+            except:
+                continue
+            
+            for designsheet in [s for s in data if self.ignoresheet(s.title)]:
+                self.__designdata.append(self.read_initial_conditions(data,designsheet.title))
+                self.__designtitle.append(designsheet.title)
+        
+            for sheet in [s for s in data if not self.ignoresheet(s.title)]:
+                self.__data.append(self.read_sheet(sheet))
+                self.__sheetnames.append(sheet.title)
+                self.__filenames.append(fn)
+            
+    
+    
+    
+    def column_string(self,n):
+        div=n
+        string=""
+        temp=0
+        while div>0:
+            module=(div-1)%26
+            string=chr(65+module)+string
+            div=int((div-module)/26)
+        return string
+    
+    
+    def read_sheet(self,sheet,x0 = None, y0 = None, width = None, height = None):
+        if x0 is None:      x0 = self.__read_coordinates['x0']
+        if y0 is None:      y0 = self.__read_coordinates['y0']
+        if width is None:   width = self.__read_coordinates['xwidth']
+        if height is None:  height = self.__read_coordinates['yheight']
+        
+        return np.array([[sheet['{:s}{:d}'.format(self.column_string(i),j)].value for i in range(x0,x0+width)] for j in range(y0,y0+height)])
+
+    def read_initial_conditions(self,data,sheetname,xab = 4, yab = 14, xcells = 4, ycells = 3, width = 12, height = 8):
+        if sheetname in data.sheetnames:
+            return self.read_sheet(data[sheetname],x0 = xab,y0 = yab),self.read_sheet(data[sheetname],x0 = xcells,y0 = ycells)
+        else:
+            raise KeyError
+    
+
+    def ignoresheet(self,sheetname):
+        r = False
+        for ignore in self.__ignoresheets:
+            if len(ignore) > 0:
+                if ignore[-1] == '*':
+                    if sheetname[:min(len(sheetname),len(ignore)-1)].upper() == ignore[:-1].upper():
+                        r = True
+                else:
+                    if sheetname.upper() == ignore.upper():
+                        r = True
+            else:
+                if sheetname.upper() == ignore.upper():
+                    r = True
+        return r
+    
+    def rescale(g,logscale=False,logmin=-20):
+        
+        if logscale:
+            r = np.log(g)
+            r[r<logmin] = 0
+        else:
+            r = g[:,:]
+            
+        r = (r - np.min(r))/(np.max(r) - np.min(r))
+        return r
+    
+    def extract_figure_file_parameters(self,kwargs):
+        pass
+
+
+
+    def write_PNG(self,data,filename,colors = ['3465a4','ffffff','2e3436','eeeeec'],wellsize = 50, wellradius = 20, linewidth = 3):
+        cFull   = rgb(colors[0])
+        cEmpty  = rgb(colors[1])
+        cBorder = rgb(colors[2])
+        cBack   = rgb(colors[3])
+
+        CairoImage = cairo.ImageSurface(cairo.FORMAT_ARGB32,data.shape[1] * wellsize,data.shape[0] * wellsize)
+        context    = cairo.Context(CairoImage)
+
+        context.rectangle(0,0,data.shape[1] * wellsize,data.shape[0] * wellsize)
+        context.set_source_rgb(cBack[0],cBack[1],cBack[2])
+        context.fill_preserve()
+        context.new_path()
+
+        context.set_line_width(linewidth)
+        context.translate(.5 * wellsize,.5 * wellsize)
+        
+        for x in range(int(data.shape[1])):
+            for y in range(int(data.shape[0])):
+                context.new_path()
+                context.arc(0,0,wellradius,0,2*math.pi)
+                c = cFull * data[y,x] + cEmpty * (1 - data[y,x])
+                context.set_source_rgb(c[0],c[1],c[2])
+                context.fill_preserve()
+                context.set_source_rgb(cBorder[0],cBorder[1],cBorder[2])
+                context.stroke_preserve()
+                context.translate(0,wellsize)
+            context.translate(wellsize,-data.shape[0] * wellsize)
+        
+        CairoImage.write_to_png(filename)
+
+
+
+    def get_design(self,designid = 0, designname = None):
+        if not designname is None:
+            if designname in self.__designtitle:
+                return self.__designdata[self.__designtitle.index(designname)]
+        else:
+            return self.__designdata[designid]
+    
+    def count_design(self):
+        assert len(self.__designdata) == len(self.__designtitle)
+        return len(self.__designdata)
+
+
+    def __iter__(self):
+        for fn,title,platedata in zip(self.__filenames,self.__sheetnames,self.__data):
+            yield fn,title,platedata
