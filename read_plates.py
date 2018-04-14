@@ -13,9 +13,15 @@ args = parser.parse_args()
 
 data = prc.PlateReaderData(**vars(args))
 
-for i in range(data.count_design()):
-    print data.get_design(i)
+#for i in range(data.count_design()):
+    #print data.get_design(i)
 
-for fn,title,platedata in data:
-    print fn,title
-    #print platedata
+#for fn,title,platedata in data:
+    #print fn,title
+    ##print platedata
+
+h,b = np.histogram(np.log(data.all_values()),range = (-5,0),bins = 50)
+b = b[:-1] + np.diff(b)
+
+for x in zip(b,h):
+    print np.exp(x[0]),x[1]

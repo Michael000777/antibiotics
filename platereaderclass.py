@@ -45,7 +45,7 @@ class PlateReaderData(object):
                 self.__sheetnames.append(sheet.title)
                 self.__filenames.append(fn)
             
-    
+        
     
     
     def column_string(self,n):
@@ -101,40 +101,49 @@ class PlateReaderData(object):
         return r
     
     def extract_figure_file_parameters(self,kwargs):
-        pass
+        self.figureparameters = {   'colors':   ['3465a4','ffffff','2e3436','eeeeec'],
+                                    'wellradius': 20,
+                                    'wellsize':50,
+                                    'linewidth':3}
 
 
 
-    def write_PNG(self,data,filename,colors = ['3465a4','ffffff','2e3436','eeeeec'],wellsize = 50, wellradius = 20, linewidth = 3):
-        cFull   = rgb(colors[0])
-        cEmpty  = rgb(colors[1])
-        cBorder = rgb(colors[2])
-        cBack   = rgb(colors[3])
+    def write_PNG(self,dataid,outfilename = None):
+        if 0 <= dataid < len(self.__data):
+            if outfilename is None:
+                outfilename = self.__sheetnames[dataid] + '.png'
+                
+            cFull   = rgb(self.figureparameters['colors'][0])
+            cEmpty  = rgb(self.figureparameters['colors'][1])
+            cBorder = rgb(self.figureparameters['colors'][2])
+            cBack   = rgb(self.figureparameters['colors'][3])
 
-        CairoImage = cairo.ImageSurface(cairo.FORMAT_ARGB32,data.shape[1] * wellsize,data.shape[0] * wellsize)
-        context    = cairo.Context(CairoImage)
+            CairoImage = cairo.ImageSurface(cairo.FORMAT_ARGB32,data.shape[1] * self.figureparameters['wellsize'],data.shape[0] * self.figureparameters['wellsize'])
+            context    = cairo.Context(CairoImage)
 
-        context.rectangle(0,0,data.shape[1] * wellsize,data.shape[0] * wellsize)
-        context.set_source_rgb(cBack[0],cBack[1],cBack[2])
-        context.fill_preserve()
-        context.new_path()
+            context.rectangle(0,0,data.shape[1] * self.figureparameters['wellsize'],data.shape[0] * self.figureparameters['wellsize'])
+            context.set_source_rgb(cBack[0],cBack[1],cBack[2])
+            context.fill_preserve()
+            context.new_path()
 
-        context.set_line_width(linewidth)
-        context.translate(.5 * wellsize,.5 * wellsize)
-        
-        for x in range(int(data.shape[1])):
-            for y in range(int(data.shape[0])):
-                context.new_path()
-                context.arc(0,0,wellradius,0,2*math.pi)
-                c = cFull * data[y,x] + cEmpty * (1 - data[y,x])
-                context.set_source_rgb(c[0],c[1],c[2])
-                context.fill_preserve()
-                context.set_source_rgb(cBorder[0],cBorder[1],cBorder[2])
-                context.stroke_preserve()
-                context.translate(0,wellsize)
-            context.translate(wellsize,-data.shape[0] * wellsize)
-        
-        CairoImage.write_to_png(filename)
+            context.set_line_width(self.figureparameters['linewidth'])
+            context.translate(.5 * self.figureparameters['wellsize'],.5 * self.figureparameters['wellsize'])
+            datamax = max(data)
+            datarange = max(data) - min(data)
+            for x in range(int(data.shape[1])):
+                for y in range(int(data.shape[0])):
+                    context.new_path()
+                    context.arc(0,0,self.figureparameters['wellradius'],0,2*math.pi)
+                    r = (datamax - data[y,x])/datarange
+                    c = cFull * (1 - r) + cEmpty * r
+                    context.set_source_rgb(c[0],c[1],c[2])
+                    context.fill_preserve()
+                    context.set_source_rgb(cBorder[0],cBorder[1],cBorder[2])
+                    context.stroke_preserve()
+                    context.translate(0,self.figureparameters['wellsize'])
+                context.translate(self.figureparameters['wellsize'],-data.shape[0] * self.figureparameters['wellsize'])
+            
+            CairoImage.write_to_png(outfilename)
 
 
 
@@ -148,6 +157,11 @@ class PlateReaderData(object):
     def count_design(self):
         assert len(self.__designdata) == len(self.__designtitle)
         return len(self.__designdata)
+
+
+    def all_values(self):
+        return np.concatenate([x.flatten() for x in self.__data])
+        
 
 
     def __iter__(self):
