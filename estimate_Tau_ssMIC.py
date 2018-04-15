@@ -89,6 +89,8 @@ def main():
     parser.add_argument("-P", "--Images",           default = False, action = "store_true")
     parser.add_argument("-T", "--ThresholdFiles",   default = False, action = "store_true")
     parser.add_argument("-F", "--DataFiles",        default = False, action = "store_true")
+    parser.add_argument("-G", "--GnuplotOutput",    default = False, action = "store_true")
+    parser.add_argument("-g", "--GnuplotColumns",   type = int, default = 3)
     
     parser.add_argument("-L", "--AB_lambda",        type = float, default = 1)
     parser.add_argument("-l", "--AB_lambdaStdDev" , type = float, default = 0)
@@ -102,6 +104,33 @@ def main():
     if args.Images:
         data.Export_All_PNGs()
     
+    if args.GnuplotOutput:
+        sys.stderr.write("set terminal pngcairo enhanced size 1920,1080\n")
+        sys.stderr.write("set output \"inoculumeffect.png\"\n")
+        sys.stderr.write("set multiplot\n")
+        sys.stderr.write("set border 15 lw 2 lc rgb \"#2e3436\"\n")
+        sys.stderr.write("set tics front\n")
+        sys.stderr.write("set xra [1e-3:1e2]\n")
+        sys.stderr.write("set yra [1e2:1e8]\n")
+        sys.stderr.write("set logscale\n")
+        ysize = 1./args.GnuplotColumns
+        if len(data) % args.GnuplotColumns == 0:
+            xsize = 1./(len(data)//args.GnuplotColumns)
+        else:
+            xsize = 1.(len(data)//args.GnuplotColumns + 1.)
+        sys.stderr.write("xsize = {:e}\n".format(xsize))
+        sys.stderr.write("ysize = {:e}\n".format(ysize))
+        sys.stderr.write("xoffset = 0\n")
+        sys.stderr.write("yoffset = 0\n")
+        sys.stderr.write("set size {:e},{:e}\n".format(xsize,ysize))
+        sys.stderr.write("n0(abconc,taulambda,ssmic) = 1 + log(abconc / ssmic) / taulambda\n")
+        sys.stderr.write("set label 1 \"empty\" at graph .5,.05 center front\n")
+        sys.stderr.write("unset key\n")
+        sys.stderr.write("set samples 1001\n")
+        sys.stderr.write("\n")
+
+    
+    i = 0
     for fn,title,transitions in data.transitions(threshold = args.growthThreshold):
         
         tau1,smic1 = estimate_Tau_sMIC_linearFit(transitions)
@@ -109,8 +138,19 @@ def main():
         
         print("{:40s} {:14.6e} {:14.6e} {:14.6e} {:14.6e} {:14.6e} {:14.6e} {:14.6e}".format(title,tau1[0],tau1[1],smic1[0],smic1[1],tau2,tau3,smic2))
         
-        if args.ThresholdFiles:
+        if args.ThresholdFiles or args.GnuplotOutput:
             np.savetxt(title.replace(' ','_') + '.T{:f}.txt'.format(args.growthThreshold),transitions)
+        
+        if args.GnuplotOutput:
+            sys.stderr.write("set origin xoffset + {:d} * xsize, yoffset + {:d} * ysize\n" . format(i//args.GnuplotColumns,i % args.GnuplotColumns))
+            sys.stderr.write("set label 1 \"{:s}\"\n".format(title.replace("\"","'")))
+            sys.stderr.write("plot \\\n")
+            sys.stderr.write("  n0(x,{:e},{:e}) w l lw 4 lc rgb \"#75507b\",\\\n".format(tau2,smic2))
+            sys.stderr.write("  n0(x,{:e},{:e}) w l lw 4 lc rgb \"#f57900\",\\\n".format(tau3,smic2))
+            sys.stderr.write("  n0(x,{:e},{:e}) w l lw 4 lc rgb \"#cc0000\",\\\n".format(tau1[0],smic1[0]))
+            sys.stderr.write("  \"{:s}\" u 1:2 w p pt 7 ps 2 lc rgb \"#3465a4\"\n".format(title.replace(' ','_') + '.T{:f}.txt'.format(args.growthThreshold)))
+            sys.stderr.write("\n")
+        i += 1
     
     if args.DataFiles:
         for fn,title,platedata in data:
