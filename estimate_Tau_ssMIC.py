@@ -133,7 +133,7 @@ def main():
     i = 0
     lastfn = ""
     for fn,title,transitions in data.transitions(threshold = args.growthThreshold):
-        
+        basename = title.replace(' ','_')
         if fn != lastfn:
             print("# data from '{:s}'".format(fn))
         lastfn = fn
@@ -141,25 +141,26 @@ def main():
         tau1,smic1 = estimate_Tau_sMIC_linearFit(transitions)
         tau2,tau3,smic2 = estimate_Tau_sMIC_singleParameter(transitions)
         
-        print("{:40s} {:14.6e} {:14.6e} {:14.6e} {:14.6e} {:14.6e} {:14.6e} {:14.6e}".format(title,tau1[0],tau1[1],smic1[0],smic1[1],tau2,tau3,smic2))
+        print("{:40s} {:14.6e} {:14.6e} {:14.6e} {:14.6e} {:14.6e} {:14.6e} {:14.6e}".format(basename,tau1[0],tau1[1],smic1[0],smic1[1],tau2,tau3,smic2))
         
         if args.ThresholdFiles or args.GnuplotOutput:
-            np.savetxt(title.replace(' ','_') + '.T{:f}.txt'.format(args.growthThreshold),transitions)
+            np.savetxt(basename + '.T{:f}.txt'.format(args.growthThreshold),transitions)
         
         if args.GnuplotOutput:
             sys.stderr.write("set origin xoffset + {:d} * xsize, yoffset + {:d} * ysize\n" . format(i//args.GnuplotColumns,i % args.GnuplotColumns))
-            sys.stderr.write("set label 1 \"{:s}\"\n".format(title.replace("\"","'")))
+            sys.stderr.write("set label 1 \"{:s}\"\n".format(basename.replace('_','-')))
             sys.stderr.write("plot \\\n")
             sys.stderr.write("  n0(x,{:e},{:e}) w l lw 4 lc rgb \"#75507b\",\\\n".format(tau2,smic2))
             sys.stderr.write("  n0(x,{:e},{:e}) w l lw 4 lc rgb \"#f57900\",\\\n".format(tau3,smic2))
             sys.stderr.write("  n0(x,{:e},{:e}) w l lw 4 lc rgb \"#cc0000\",\\\n".format(tau1[0],smic1[0]))
-            sys.stderr.write("  \"{:s}\" u 1:2 w p pt 7 ps 2 lc rgb \"#3465a4\"\n".format(title.replace(' ','_') + '.T{:f}.txt'.format(args.growthThreshold)))
+            sys.stderr.write("  \"{:s}\" u 1:2 w p pt 7 ps 2 lc rgb \"#3465a4\"\n".format(basename + '.T{:f}.txt'.format(args.growthThreshold)))
             sys.stderr.write("\n")
         i += 1
     
     if args.DataFiles:
         for fn,title,platedata in data:
-            np.savetxt(title.replace(' ','_') + '.data.txt',platedata)
+            basename = title.replace(' ','_')
+            np.savetxt(basename + '.data.txt',platedata)
     
     if args.HistogramOD:
         if args.HistogramLogscale:
