@@ -178,7 +178,9 @@ class PlateReaderData(object):
             
             CairoImage.write_to_png(outfilename)
 
-
+    def Export_All_PNGs(self):
+        for i in range(self.count):
+            self.write_PNG(i)
 
     def get_design(self,designid = 0, designname = None):
         if not designname is None:
@@ -237,4 +239,12 @@ class PlateReaderData(object):
     
     def __len__(self):
         return len(self.__data)
+    
+    def __getitem__(self,key):
+        if key == "count":
+            return len(self.__data)
+        elif key == "count_design":
+            return len(self.__designdata)
+        else:
+            super(PlateReaderData,self).__getitem__(key)
     

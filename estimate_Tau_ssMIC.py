@@ -86,9 +86,9 @@ def main():
     parser.add_argument("-t", "--growthThreshold",  type = float, default = 0.1)
     parser.add_argument("-D", "--designassignment", type = int, nargs = "*", default = [])
     
-    parser.add_argument("-P", "--noImages",         default = False, action = "store_true")
-    parser.add_argument("-T", "--noThresholdFiles", default = False, action = "store_true")
-    parser.add_argument("-F", "--noDataFiles",      default = False, action = "store_true")
+    parser.add_argument("-P", "--Images",           default = False, action = "store_true")
+    parser.add_argument("-T", "--ThresholdFiles",   default = False, action = "store_true")
+    parser.add_argument("-F", "--DataFiles",        default = False, action = "store_true")
     
     parser.add_argument("-L", "--AB_lambda",        type = float, default = 1)
     parser.add_argument("-l", "--AB_lambdaStdDev" , type = float, default = 0)
@@ -99,12 +99,22 @@ def main():
     
     data = prc.PlateReaderData(**vars(args))
     
+    if args.Images:
+        data.Export_All_PNGs()
+    
     for fn,title,transitions in data.transitions(threshold = args.growthThreshold):
+        
         tau1,smic1 = estimate_Tau_sMIC_linearFit(transitions)
         tau2,tau3,smic2 = estimate_Tau_sMIC_singleParameter(transitions)
         
         print("{:40s} {:14.6e} {:14.6e} {:14.6e} {:14.6e} {:14.6e} {:14.6e} {:14.6e}".format(title,tau1[0],tau1[1],smic1[0],smic1[1],tau2,tau3,smic2))
+        
+        if args.ThresholdFiles:
+            np.savetxt(title.replace(' ','_') + '.T{:f}.txt'.format(args.growthThreshold),transitions)
     
+    if args.DataFiles:
+        for fn,title,platedata in data:
+            np.savetxt(title.replace(' ','_') + '.data.txt',platedata)
 
 if __name__ == "__main__":
     main()
