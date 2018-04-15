@@ -3,7 +3,7 @@
 import numpy as np
 import argparse
 import sys,math
-
+import itertools
 import openpyxl
 
 class PlateReaderData(object):
@@ -20,6 +20,7 @@ class PlateReaderData(object):
         self.__data = list()
         self.__filenames = list()
         self.__sheetnames = list()
+        self.__designassignment = list()
         
         self.__read_coordinates = { 'x0':kwargs.get("xstart",2),
                                     'y0':kwargs.get("ystart",2),
@@ -29,7 +30,8 @@ class PlateReaderData(object):
         self.__ignoresheets = ['Plate Design*']
         if len(self.__ignoresheetsparameter) > 0:
             self.__ignoresheets += self.__ignoresheetsparameter
-            
+        
+        # load all data at __init__()
         for fn in self.__infilenames:
             try:
                 data = openpyxl.load_workbook(fn)
@@ -39,11 +41,16 @@ class PlateReaderData(object):
             for designsheet in [s for s in data if self.ignoresheet(s.title)]:
                 self.__designdata.append(self.read_initial_conditions(data,designsheet.title))
                 self.__designtitle.append(designsheet.title)
-        
+            i = 0
             for sheet in [s for s in data if not self.ignoresheet(s.title)]:
                 self.__data.append(self.read_sheet(sheet))
                 self.__sheetnames.append(sheet.title)
                 self.__filenames.append(fn)
+                try:
+                    self.__designassignment.append(kwargs.get("designassignment",[])[i])
+                except:
+                    self.__designassignment.append(0)
+                i+=1
             
         
     
@@ -161,8 +168,31 @@ class PlateReaderData(object):
 
     def all_values(self):
         return np.concatenate([x.flatten() for x in self.__data])
-        
+    
 
+    def compute_growth_nogrowth_transition(self,dataid,threshold,design = 0,geom = True):
+        r=list()
+        print "hi",dataid,threshold,design
+        for i,j in itertools.product(np.arange(np.shape(self.__data[dataid])[0]),np.arange(np.shape(self.__data[dataid])[1])):
+            print i,j
+            try:
+                if (self.__data[dataid][i,j] - threshold) * (self.__data[dataid][i+1,j] - threshold) < 0:
+                    r.append(np.array([avg([self.__designdata[design][0][i,j],self.__designdata[design][0][i+1,j]],geom),avg([self.__designdata[design][1][i,j],self.__designdata[design][1][i+1,j]],geom)]))
+            except:
+                pass
+            try:
+                if (self.__data[dataid][i,j] - threshold) * (self.__data[dataid][i,j+1] - threshold) < 0:
+                    r.append(np.array([avg([self.__designdata[design][0][i,j],self.__designdata[design][0][i,j+1]],geom),avg([self.__designdata[design][1][i,j],self.__designdata[design][1][i,j+1]],geom)]))
+            except:
+                pass
+            print r
+            if len(r) > 0:
+                return np.vstack(r)
+            else:
+                return None
+
+    def transitions(self,threshold):
+        return [(self.__filenames[i],self.__sheetnames[i],self.compute_growth_nogrowth_transition(i,threshold,self.__designassignment[i])) for i in range(len(self.__data))]
 
     def __iter__(self):
         for fn,title,platedata in zip(self.__filenames,self.__sheetnames,self.__data):

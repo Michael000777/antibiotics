@@ -20,8 +20,13 @@ data = prc.PlateReaderData(**vars(args))
     #print fn,title
     ##print platedata
 
-h,b = np.histogram(np.log(data.all_values()),range = (-5,0),bins = 50)
-b = b[:-1] + np.diff(b)
 
-for x in zip(b,h):
-    print np.exp(x[0]),x[1]
+for fn,title,transitions in data.transitions(threshold = .1):
+    print title
+    print transitions
+
+#h,b = np.histogram(np.log(data.all_values()),range = (-5,0),bins = 50)
+#b = b[:-1] + np.diff(b)
+
+#for x in zip(b,h):
+    #print np.exp(x[0]),x[1]
