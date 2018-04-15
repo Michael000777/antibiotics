@@ -5,15 +5,10 @@ from __future__ import print_function
 
 import numpy as np
 import argparse
-import openpyxl
-import cairo
 import sys,math
 import uncertainties
-import itertools
 
 from uncertainties.umath import exp as uexp
-from skimage import measure
-from scipy.optimize import curve_fit
 
 import platereaderclass as prc
 
@@ -79,26 +74,28 @@ def estimate_Tau_sMIC_singleParameter(initialconditions,ABlambda = 1):
 # *****************************************************************
 
 def main():
-    ignoresheets = ["Plate design"]
-
     parser = argparse.ArgumentParser()
-    parser.add_argument("-i", "--infiles",          nargs = "*")
-    parser.add_argument("-t", "--growthThreshold",  type = float, default = 0.1)
-    parser.add_argument("-D", "--designassignment", type = int, nargs = "*", default = [])
     
-    parser.add_argument("-P", "--Images",           default = False, action = "store_true")
-    parser.add_argument("-T", "--ThresholdFiles",   default = False, action = "store_true")
-    parser.add_argument("-F", "--DataFiles",        default = False, action = "store_true")
-    parser.add_argument("-G", "--GnuplotOutput",    default = False, action = "store_true")
-    parser.add_argument("-g", "--GnuplotColumns",   type = int, default = 3)
+    parser_io = parser.add_argument_group(description = "==== I/O parameters ====")
+    parser_io.add_argument("-i", "--infiles",          nargs = "*")
+    parser_io.add_argument("-P", "--Images",           default = False, action = "store_true")
+    parser_io.add_argument("-T", "--ThresholdFiles",   default = False, action = "store_true")
+    parser_io.add_argument("-F", "--DataFiles",        default = False, action = "store_true")
+    parser_io.add_argument("-G", "--GnuplotOutput",    default = False, action = "store_true")
+    parser_io.add_argument("-g", "--GnuplotColumns",   type = int, default = 3)
     
-    parser.add_argument("-L", "--AB_lambda",        type = float, default = 1)
-    parser.add_argument("-l", "--AB_lambdaStdDev" , type = float, default = 0)
+    parser_alg.add_argument_group(description = "==== Algorithm parameters ====")
+    parser_alg.add_argument("-t", "--growthThreshold",  type = float, default = 0.1)
+    parser_alg.add_argument("-D", "--designassignment", type = int,   default = [], nargs = "*")
+    parser_alg.add_argument("-L", "--AB_lambda",        type = float, default = 1)
+    parser_alg.add_argument("-l", "--AB_lambdaStdDev" , type = float, default = 0)
+    
     args = parser.parse_args()
     
     # use uncertainties package to compute error propagation
     ABlambda = uncertainties.ufloat(args.AB_lambda,args.AB_lambdaStdDev)
     
+    # load all data via the 'PlateReaderData' class
     data = prc.PlateReaderData(**vars(args))
     
     if args.Images:
@@ -131,7 +128,12 @@ def main():
 
     
     i = 0
+    lastfn = ""
     for fn,title,transitions in data.transitions(threshold = args.growthThreshold):
+        
+        if fn != lastfn:
+            print("# data from '{:s}'".format(fn))
+        lastfn = fn
         
         tau1,smic1 = estimate_Tau_sMIC_linearFit(transitions)
         tau2,tau3,smic2 = estimate_Tau_sMIC_singleParameter(transitions)
