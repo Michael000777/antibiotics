@@ -77,18 +77,21 @@ def main():
     parser = argparse.ArgumentParser()
     
     parser_io = parser.add_argument_group(description = "==== I/O parameters ====")
-    parser_io.add_argument("-i", "--infiles",          nargs = "*")
-    parser_io.add_argument("-P", "--Images",           default = False, action = "store_true")
-    parser_io.add_argument("-T", "--ThresholdFiles",   default = False, action = "store_true")
-    parser_io.add_argument("-F", "--DataFiles",        default = False, action = "store_true")
-    parser_io.add_argument("-G", "--GnuplotOutput",    default = False, action = "store_true")
-    parser_io.add_argument("-g", "--GnuplotColumns",   type = int, default = 3)
+    parser_io.add_argument("-i", "--infiles",           nargs = "*")
+    parser_io.add_argument("-P", "--Images",            default = False, action = "store_true")
+    parser_io.add_argument("-T", "--ThresholdFiles",    default = False, action = "store_true")
+    parser_io.add_argument("-F", "--DataFiles",         default = False, action = "store_true")
+    parser_io.add_argument("-G", "--GnuplotOutput",     default = False, action = "store_true")
+    parser_io.add_argument("-g", "--GnuplotColumns",    default = 3,     type = int)
+    parser_io.add_argument("-H", "--HistogramOD",       default = False, action = "store_true")
+    parser_io.add_argument("-b", "--HistogramBins",     default = 20,    type = int)
+    parser_io.add_argument("-B", "--HistogramLogscale", default = False, action = "store_true")
     
-    parser_alg.add_argument_group(description = "==== Algorithm parameters ====")
-    parser_alg.add_argument("-t", "--growthThreshold",  type = float, default = 0.1)
-    parser_alg.add_argument("-D", "--designassignment", type = int,   default = [], nargs = "*")
-    parser_alg.add_argument("-L", "--AB_lambda",        type = float, default = 1)
-    parser_alg.add_argument("-l", "--AB_lambdaStdDev" , type = float, default = 0)
+    parser_alg = parser.add_argument_group(description = "==== Algorithm parameters ====")
+    parser_alg.add_argument("-t", "--growthThreshold",  default = 0.2,   type = float)
+    parser_alg.add_argument("-D", "--designassignment", default = [],    type = int, nargs = "*")
+    parser_alg.add_argument("-L", "--AB_lambda",        default = 1,     type = float)
+    parser_alg.add_argument("-l", "--AB_lambdaStdDev" , default = 0,     type = float)
     
     args = parser.parse_args()
     
@@ -157,6 +160,15 @@ def main():
     if args.DataFiles:
         for fn,title,platedata in data:
             np.savetxt(title.replace(' ','_') + '.data.txt',platedata)
+    
+    if args.HistogramOD:
+        if args.HistogramLogscale:
+            h,b = np.histogram(np.log(data.all_values()), bins = args.HistogramBins)
+            b = np.exp(b[:-1] + np.diff(b))
+        else:
+            h,b = np.histogram(data.all_values(), range = (0,1), bins = args.HistogramBins)
+            b = b[:-1] + np.diff(b)
+        np.savetxt('HistogramOD.txt',np.transpose([b,h]))
 
 if __name__ == "__main__":
     main()
