@@ -86,6 +86,7 @@ def main():
     parser_io.add_argument("-H", "--HistogramOD",       default = False, action = "store_true")
     parser_io.add_argument("-b", "--HistogramBins",     default = 20,    type = int)
     parser_io.add_argument("-B", "--HistogramLogscale", default = False, action = "store_true")
+    parser_io.add_argument("-X", "--BasenameExtension", default = "",    type=str)
     
     parser_alg = parser.add_argument_group(description = "==== Algorithm parameters ====")
     parser_alg.add_argument("-t", "--growthThreshold",  default = 0.2,   type = float)
@@ -133,7 +134,7 @@ def main():
     i = 0
     lastfn = ""
     for fn,title,transitions in data.transitions(threshold = args.growthThreshold):
-        basename = title.replace(' ','_')
+        basename = (args.BasenameExtension + title).replace(' ','_')
         if fn != lastfn:
             print("# data from '{:s}'".format(fn))
         lastfn = fn

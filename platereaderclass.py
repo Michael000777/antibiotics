@@ -5,6 +5,7 @@ import argparse
 import sys,math
 import itertools
 import openpyxl
+import cairo
 
 class PlateReaderData(object):
     def __init__(self,**kwargs):
@@ -23,7 +24,7 @@ class PlateReaderData(object):
         self.__designassignment = list()
         
         self.__rescale = kwargs.get("DataRescale",False)
-        self.__logdata = kwargs.get("DataLogscale",False)
+        self.__logscale = kwargs.get("DataLogscale",False)
         self.__logmin  = kwargs.get("DataLogscaleMin",-20)
         
         self.__read_coordinates = { 'x0':kwargs.get("xstart",2),
@@ -151,30 +152,30 @@ class PlateReaderData(object):
             cBorder = self.rgb(self.figureparameters['colors'][2])
             cBack   = self.rgb(self.figureparameters['colors'][3])
 
-            CairoImage = cairo.ImageSurface(cairo.FORMAT_ARGB32,data.shape[1] * self.figureparameters['wellsize'],data.shape[0] * self.figureparameters['wellsize'])
+            CairoImage = cairo.ImageSurface(cairo.FORMAT_ARGB32,self.__data[dataid].shape[1] * self.figureparameters['wellsize'],self.__data[dataid].shape[0] * self.figureparameters['wellsize'])
             context    = cairo.Context(CairoImage)
 
-            context.rectangle(0,0,data.shape[1] * self.figureparameters['wellsize'],data.shape[0] * self.figureparameters['wellsize'])
+            context.rectangle(0,0,self.__data[dataid].shape[1] * self.figureparameters['wellsize'],self.__data[dataid].shape[0] * self.figureparameters['wellsize'])
             context.set_source_rgb(cBack[0],cBack[1],cBack[2])
             context.fill_preserve()
             context.new_path()
 
             context.set_line_width(self.figureparameters['linewidth'])
             context.translate(.5 * self.figureparameters['wellsize'],.5 * self.figureparameters['wellsize'])
-            datamax = max(data)
-            datarange = max(data) - min(data)
-            for x in range(int(data.shape[1])):
-                for y in range(int(data.shape[0])):
+            datamax   = np.amax(self.__data[dataid])
+            datarange = np.amax(self.__data[dataid]) - np.amin(self.__data[dataid])
+            for x in range(int(self.__data[dataid].shape[1])):
+                for y in range(int(self.__data[dataid].shape[0])):
                     context.new_path()
                     context.arc(0,0,self.figureparameters['wellradius'],0,2*math.pi)
-                    r = (datamax - data[y,x])/datarange
+                    r = (datamax - self.__data[dataid][y,x])/datarange
                     c = cFull * (1 - r) + cEmpty * r
                     context.set_source_rgb(c[0],c[1],c[2])
                     context.fill_preserve()
                     context.set_source_rgb(cBorder[0],cBorder[1],cBorder[2])
                     context.stroke_preserve()
                     context.translate(0,self.figureparameters['wellsize'])
-                context.translate(self.figureparameters['wellsize'],-data.shape[0] * self.figureparameters['wellsize'])
+                context.translate(self.figureparameters['wellsize'],-self.__data[dataid].shape[0] * self.figureparameters['wellsize'])
             
             CairoImage.write_to_png(outfilename)
 
@@ -240,7 +241,7 @@ class PlateReaderData(object):
     def __len__(self):
         return len(self.__data)
     
-    def __getitem__(self,key):
+    def __getattr__(self,key):
         if key == "count":
             return len(self.__data)
         elif key == "count_design":
