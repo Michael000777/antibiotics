@@ -142,6 +142,7 @@ def main():
         basename = (args.BasenameExtension + title).replace(' ','_')
         if fn != lastfn:
             print("# data from '{:s}'".format(fn))
+            print("{:40s} {:>14s} {:>14s} {:>14s} {:>14s} {:>14s} {:>14s} {:>14s}".format("",'tau 2','taudev 2', 'ssmic 2', 'ssmicdev 2','tau Nmin', 'tau Bmin','ssmic 1'))
         lastfn = fn
         
         tau1,smic1 = estimate_Tau_sMIC_linearFit(transitions)
