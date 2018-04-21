@@ -87,6 +87,7 @@ def main():
     parser_io.add_argument("-b", "--HistogramBins",     default = 20,    type = int)
     parser_io.add_argument("-B", "--HistogramLogscale", default = False, action = "store_true")
     parser_io.add_argument("-X", "--BasenameExtension", default = "",    type=str)
+    parser_io.add_argument("-d", "--GenerateDesign",    default = [6e6,4,6.25,2], nargs = 4, type = int)
     
     parser_alg = parser.add_argument_group(description = "==== Algorithm parameters ====")
     parser_alg.add_argument("-t", "--growthThreshold",  default = 0.2,   type = float)
@@ -130,6 +131,10 @@ def main():
         sys.stderr.write("set samples 1001\n")
         sys.stderr.write("\n")
 
+    
+    
+    if data.count_design() == 0:
+        data.generate_design(xstart = args.GenerateDesign[0],xdilution = args.GenerateDesign[1], ystart = args.GenerateDesign[2], ydilution = args.GenerateDesign[3])
     
     i = 0
     lastfn = ""

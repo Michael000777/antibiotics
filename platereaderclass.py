@@ -206,6 +206,19 @@ class PlateReaderData(object):
         return len(self.__designdata)
 
 
+    def add_design(self,xstart=6e6,xdilution = 4.,ystart=6.25,ydilution = 2,xdirection = 1,ydirection = -1,xsize = 8, ysize = 12, designtitle = 'generated'):
+        if ydirection < 0:  ydirection = -1
+        else:               ydirection =  1
+        if xdirection < 0:  xdirection = -1
+        else:               xdirection =  1
+        if designtitle == 'generated':
+            designtitle += '_X{}_dil{}_Y{}_dil{}'.format(xstart,xdilution,ystart,ydilution)
+        design_x = np.array([[xstart * np.power(xdilution,-i) for j in np.arange(ysize)[::ydirection]] for i in np.arange(xsize)[::xdirection]],dtype=np.float)
+        design_y = np.array([[ystart * np.power(ydilution,-j) for j in np.arange(ysize)[::ydirection]] for i in np.arange(xsize)[::xdirection]],dtype=np.float)
+        
+        self.__designdata.append((design_x,design_y))
+        self.__designtitle.append(designtitle)
+
     def all_values(self):
         return np.concatenate([x.flatten() for x in self.__data])
     
