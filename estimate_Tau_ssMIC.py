@@ -39,7 +39,7 @@ def LMSQ(x,y):
 # ** process data
 # *****************************************************************
 
-def estimate_Tau_sMIC_linearFit(initialconditions,ABlambda = 1):
+def estimate_Tau_sMIC_linearFitBN(initialconditions,ABlambda = 1,Rsquared = False):
     # theory predicts: N > 1 + lambda/tau LOG(B/sMIC)
     Nm1 = initialconditions[:,1] - 1
     lB  = np.log(initialconditions[:,0])
@@ -53,7 +53,38 @@ def estimate_Tau_sMIC_linearFit(initialconditions,ABlambda = 1):
     tau     = np.array([uncertainties.nominal_value(u_tau), uncertainties.std_dev(u_tau)])
     sMIC    = np.array([uncertainties.nominal_value(u_sMIC),uncertainties.std_dev(u_sMIC)])
     
-    return tau,sMIC
+    if not Rsquared:
+        return tau,sMIC
+    else:
+        residuals = Nm1 - fit[0] - fit[1] * lB
+        ss_res    = np.sum(residuals**2)
+        ss_tot    = np.sum((Nm1 - np.mean(Nm1))**2)
+        R2        = 1 - ss_res/ss_tot
+        return tau,sMIC,R2
+    
+def estimate_Tau_sMIC_linearFitNB(initialconditions,ABlambda = 1,Rsquared = False):
+    # theory predicts: N > 1 + lambda/tau LOG(B/sMIC)
+    Nm1 = initialconditions[:,1] - 1
+    lB  = np.log(initialconditions[:,0])
+    
+    fit,cov = LMSQ(lB,Nm1)
+    ret     = uncertainties.correlated_values(fit,cov)
+    
+    u_tau   = ABlambda/ret[1]
+    u_sMIC  = uexp(-ret[0]/ret[1])
+    
+    tau     = np.array([uncertainties.nominal_value(u_tau), uncertainties.std_dev(u_tau)])
+    sMIC    = np.array([uncertainties.nominal_value(u_sMIC),uncertainties.std_dev(u_sMIC)])
+    
+    if not Rsquared:
+        return tau,sMIC
+    else:
+        residuals = Nm1 - fit[0] - fit[1] * lB
+        ss_res    = np.sum(residuals**2)
+        ss_tot    = np.sum((Nm1 - np.mean(Nm1))**2)
+        R2        = 1 - ss_res/ss_tot
+        return tau,sMIC,R2
+    
 
 
 def estimate_Tau_sMIC_singleParameter(initialconditions,ABlambda = 1):
@@ -142,13 +173,13 @@ def main():
         basename = (args.BasenameExtension + title).replace(' ','_')
         if fn != lastfn:
             print("# data from '{:s}'".format(fn))
-            print("{:40s} {:>14s} {:>14s} {:>14s} {:>14s} {:>14s} {:>14s} {:>14s}".format("",'tau 2','taudev 2', 'ssmic 2', 'ssmicdev 2','tau Nmin', 'tau Bmin','ssmic 1'))
+            print("{:40s} {:>14s} {:>14s} {:>14s} {:>14s} {:>14s} {:>14s} {:>14s}".format('#','tau 2','taudev 2', 'ssmic 2', 'ssmicdev 2','tau Nmin', 'tau Bmin','ssmic 1'))
         lastfn = fn
         
-        tau1,smic1 = estimate_Tau_sMIC_linearFit(transitions)
+        tau1,smic1,Rsq1 = estimate_Tau_sMIC_linearFit(transitions,Rsquared = True)
         tau2,tau3,smic2 = estimate_Tau_sMIC_singleParameter(transitions)
         
-        print("{:40s} {:14.6e} {:14.6e} {:14.6e} {:14.6e} {:14.6e} {:14.6e} {:14.6e}".format(basename,tau1[0],tau1[1],smic1[0],smic1[1],tau2,tau3,smic2))
+        print("{:40s} {:14.6e} {:14.6e} {:14.6e} {:14.6e} {:14.6e} {:14.6e} {:14.6e} {:14.6e}".format(basename,tau1[0],tau1[1],smic1[0],smic1[1],Rsq1,tau2,tau3,smic2))
         
         if args.ThresholdFiles or args.GnuplotOutput:
             np.savetxt(basename + '.T{:f}.txt'.format(args.growthThreshold),transitions)
