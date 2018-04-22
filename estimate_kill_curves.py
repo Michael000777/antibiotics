@@ -23,37 +23,41 @@ def MLSQ(x,y):
 
     return estim,cov
 
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-i","--infiles",nargs="*")
+    parser.add_argument("-t","--timepoints",default=-1,type=int)
+    args = parser.parse_args()
 
-parser = argparse.ArgumentParser()
-parser.add_argument("-i","--infiles",nargs="*")
-parser.add_argument("-t","--timepoints",default=-1,type=int)
-args = parser.parse_args()
+    data = list()
+    n = 0
+    for filename in args.infiles:
+        print "# load '{}'".format(filename)
+        try:
+            data.append(np.genfromtxt(filename))
+            n += 1
+        except:
+            continue
+            #raise IOError("could not open file")
 
-data = list()
-n = 0
-for filename in args.infiles:
-    print "# load '{}'".format(filename)
-    try:
-        data.append(np.genfromtxt(filename))
-        n += 1
-    except:
-        continue
-        #raise IOError("could not open file")
-
-if n > 0:
-    gmean = np.power(np.prod(data,axis=0),1./n)
-else:
-    raise IOError("could not open any input file")
-
-for i,conc in enumerate(gmean[:,0]):
-    if args.timepoints < 0:
-        tp = len(gmean[i,1:])
+    if n > 0:
+        gmean = np.power(np.prod(data,axis=0),1./n)
     else:
-        tp = args.timepoints
-    time = np.arange(0,10*tp,10)/60.
-    celln = gmean[i,1:tp + 2]
-    mlsq_data = MLSQ(time,np.log(celln))
-    gr    = mlsq_data[0][1]
-    grDev = np.sqrt(mlsq_data[1][1,1])
-    print '{:7.4f} {:7.4f} {:7.4f}'.format(conc,gr,grDev)
+        raise IOError("could not open any input file")
 
+    for i,conc in enumerate(gmean[:,0]):
+        if args.timepoints < 0:
+            tp = len(gmean[i,1:])
+        else:
+            tp = args.timepoints
+        time = np.arange(0,10*tp,10)/60.
+        celln = gmean[i,1:tp + 2]
+        mlsq_data = MLSQ(time,np.log(celln))
+        gr    = mlsq_data[0][1]
+        grDev = np.sqrt(mlsq_data[1][1,1])
+        print '{:7.4f} {:7.4f} {:7.4f}'.format(conc,gr,grDev)
+
+if __name__ == "__main__":
+    main()
+    
+    
