@@ -223,17 +223,32 @@ class PlateReaderData(object):
         return np.concatenate([x.flatten() for x in self.__data])
     
 
+
+    def interpolate_log_log(self,x1,x2,y1,y2,ythreshold):
+        if x2 > x1 or x2 < x1: # exclude case when they are equal
+            return x1 * np.exp(np.log(ythreshold/y1) * np.log(x1/x2) / np.log(y2/y1))
+        else:
+            return x1
+
+
     def compute_growth_nogrowth_transition(self,dataid,threshold,design = 0,geom = True):
         r=list()
         for i,j in itertools.product(np.arange(np.shape(self.__data[dataid])[0]),np.arange(np.shape(self.__data[dataid])[1])):
+            
             try:
                 if (self.__data[dataid][i,j] - threshold) * (self.__data[dataid][i+1,j] - threshold) < 0:
-                    r.append(np.array([self.avg([self.__designdata[design][0][i,j],self.__designdata[design][0][i+1,j]],geom),self.avg([self.__designdata[design][1][i,j],self.__designdata[design][1][i+1,j]],geom)]))
+                    r.append(np.array([
+                                self.interpolate_log_log(self.__designdata[design][0][i,j], self.__designdata[design][0][i+1,j], self.__data[dataid][i,j], self.__data[dataid][i+1,j], threshold),
+                                self.interpolate_log_log(self.__designdata[design][1][i,j], self.__designdata[design][1][i+1,j], self.__data[dataid][i,j], self.__data[dataid][i+1,j], threshold)
+                            ])
             except:
                 pass
             try:
                 if (self.__data[dataid][i,j] - threshold) * (self.__data[dataid][i,j+1] - threshold) < 0:
-                    r.append(np.array([self.avg([self.__designdata[design][0][i,j],self.__designdata[design][0][i,j+1]],geom),self.avg([self.__designdata[design][1][i,j],self.__designdata[design][1][i,j+1]],geom)]))
+                    r.append(np.array([
+                                self.interpolate_log_log(self.__designdata[design][0][i,j], self.__designdata[design][0][i,j+1], self.__data[dataid][i,j], self.__data[dataid][i,j+1], threshold),
+                                self.interpolate_log_log(self.__designdata[design][1][i,j], self.__designdata[design][1][i,j+1], self.__data[dataid][i,j], self.__data[dataid][i,j+1], threshold)
+                            ])
             except:
                 pass
         if len(r) > 0:
