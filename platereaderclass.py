@@ -7,6 +7,9 @@ import itertools
 import openpyxl
 import cairo
 
+from skimage import measure
+
+
 class PlateReaderData(object):
     def __init__(self,**kwargs):
 
@@ -231,7 +234,7 @@ class PlateReaderData(object):
             return x1
 
 
-    def compute_growth_nogrowth_transition(self,dataid,threshold,design = 0,geom = True):
+    def old_compute_growth_nogrowth_transition(self,dataid,threshold,design = 0,geom = True):
         r=list()
         for i,j in itertools.product(np.arange(np.shape(self.__data[dataid])[0]),np.arange(np.shape(self.__data[dataid])[1])):
             
@@ -240,7 +243,7 @@ class PlateReaderData(object):
                     r.append(np.array([
                                 self.interpolate_log_log(self.__designdata[design][0][i,j], self.__designdata[design][0][i+1,j], self.__data[dataid][i,j], self.__data[dataid][i+1,j], threshold),
                                 self.interpolate_log_log(self.__designdata[design][1][i,j], self.__designdata[design][1][i+1,j], self.__data[dataid][i,j], self.__data[dataid][i+1,j], threshold)
-                            ])
+                            ]))
             except:
                 pass
             try:
@@ -248,9 +251,31 @@ class PlateReaderData(object):
                     r.append(np.array([
                                 self.interpolate_log_log(self.__designdata[design][0][i,j], self.__designdata[design][0][i,j+1], self.__data[dataid][i,j], self.__data[dataid][i,j+1], threshold),
                                 self.interpolate_log_log(self.__designdata[design][1][i,j], self.__designdata[design][1][i,j+1], self.__data[dataid][i,j], self.__data[dataid][i,j+1], threshold)
-                            ])
+                            ]))
             except:
                 pass
+        if len(r) > 0:
+            return np.vstack(r)
+        else:
+            return None
+
+    def compute_growth_nogrowth_transition(self,dataid,threshold,design = 0, geom = True):
+        r = list()
+        allcont = measure.find_contours(self.__data[dataid],threshold)
+        for cont in allcont:
+            for pos in cont:
+                    # logarithmic interpolation
+                    i, j  = int(pos[0]//1), int(pos[1]//1)
+                    di,dj = pos[0] - i, pos[1] - j
+                    x = self.__designdata[design][0][i,j]
+                    if i + 1 < np.shape(self.__designdata[design][0])[0]:
+                        x *= np.power(self.__designdata[design][0][i+1,j]/self.__designdata[design][0][i,j],di)
+                    y = self.__designdata[design][1][i,j]
+                    if j + 1 < np.shape(self.__designdata[design][0])[1]:
+                        y *= np.power(self.__designdata[design][1][i,j+1]/self.__designdata[design][1][i,j],dj)
+                    
+                    r.append(np.array([x,y]))
+
         if len(r) > 0:
             return np.vstack(r)
         else:
