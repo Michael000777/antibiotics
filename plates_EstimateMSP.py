@@ -204,7 +204,7 @@ def main():
         print("{:40s} {:14.6e} {:14.6e} {:14.6e} {:14.6e} {:14.6e} {:14.6e} {:14.6e} {:14.6e} {:14.6e} {:14.6e} {:14.6e} {:14.6e} {:14.6e} {:14.6e} {:14.6e}".format(basename,tau1[0],tau1[1],smic1[0],smic1[1],Rsq1,tau2[0],tau2[1],smic2[0],smic2[1],Rsq2,tau3,Rsq3,tau4,Rsq4,smic3))
         
         if args.ThresholdFiles or args.GnuplotOutput:
-            np.savetxt(basename + '.T{:f}.txt'.format(args.growthThreshold),transitions)
+            np.savetxt(basename + '.threshold{:f}'.format(args.growthThreshold),transitions)
         
         if args.GnuplotOutput:
             sys.stderr.write("set origin xoffset + {:d} * xsize, yoffset + {:d} * ysize\n" . format(i//args.GnuplotColumns,i % args.GnuplotColumns))
@@ -214,14 +214,21 @@ def main():
             sys.stderr.write("  n0(x,{:e},{:e}) w l lw 4 lc rgb \"#8ae234\",\\\n".format(tau4,smic3))
             sys.stderr.write("  n0(x,{:e},{:e}) w l lw 4 lc rgb \"#a40000\",\\\n".format(tau1[0],smic1[0]))
             sys.stderr.write("  n0(x,{:e},{:e}) w l lw 4 lc rgb \"#ef2929\",\\\n".format(tau2[0],smic2[0]))
-            sys.stderr.write("  \"{:s}\" u 1:2 w p pt 7 ps 2 lc rgb \"#3465a4\"\n".format(basename + '.T{:f}.txt'.format(args.growthThreshold)))
+            sys.stderr.write("  \"{:s}\" u 1:2 w p pt 7 ps 2 lc rgb \"#3465a4\"\n".format(basename + '.treshold{:f}'.format(args.growthThreshold)))
             sys.stderr.write("\n")
         i += 1
     
     if args.DataFiles:
-        for fn,title,platedata in data:
-            basename = title.replace(' ','_')
-            np.savetxt(basename + '.data.txt',platedata)
+        for dataID,plate in enumerate(data):
+            fn,title,platedata = plate
+            design = data.get_design(dataID = dataID)
+            basename = (args.BasenameExtension + title + '.data').replace(' ','_')
+            fp = open(basename,'w')
+            for i in range(np.shape(platedata)[0]):
+                for j in range(np.shape(platedata)[1]):
+                    fp.write("{} {} {}\n".format(design[0][i,j],design[1][i,j],platedata[i,j]))
+                fp.write("\n")
+            fp.close()
     
     if args.HistogramOD:
         if args.HistogramLogscale:

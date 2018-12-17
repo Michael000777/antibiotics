@@ -186,10 +186,12 @@ class PlateReaderData(object):
         for i in range(self.count):
             self.write_PNG(i)
 
-    def get_design(self,designid = 0, designname = None):
+    def get_design(self,designid = 0, designname = None, dataID = None):
         if not designname is None:
             if designname in self.__designtitle:
                 return self.__designdata[self.__designtitle.index(designname)]
+        elif not dataID is None:
+            return self.__designdata[self.__designassignment[dataID]]
         else:
             return self.__designdata[designid]
     
@@ -228,32 +230,33 @@ class PlateReaderData(object):
 
 
     def interpolate_log_log(self,x1,x2,y1,y2,ythreshold):
-        if x2 > x1 or x2 < x1: # exclude case when they are equal
-            return x1 * np.exp(np.log(ythreshold/y1) * np.log(x1/x2) / np.log(y2/y1))
+        #print "{:.6e} {:.6e} {:.6e} {:.6e} {:.6e}".format(x1,x2,y1,y2,ythreshold)
+        if x1 > x2 and x2 > x1:
+            return x1 * np.exp( np.log(ythreshold/y1) * np.log(x2/x1) / np.log(y2/y1) )
         else:
             return x1
 
 
     def old_compute_growth_nogrowth_transition(self,dataid,threshold,design = 0,geom = True):
-        r=list()
-        for i,j in itertools.product(np.arange(np.shape(self.__data[dataid])[0]),np.arange(np.shape(self.__data[dataid])[1])):
-            
-            try:
+        r = list()
+        platesize = np.shape(self.__data[dataid])
+        
+        for i,j in itertools.product(np.arange(platesize[0]),np.arange(platesize[1])):
+            if i + 1 < platesize[0]:
                 if (self.__data[dataid][i,j] - threshold) * (self.__data[dataid][i+1,j] - threshold) < 0:
+                    #print self.interpolate_log_log(self.__designdata[design][1][i,j], self.__designdata[design][1][i+1,j], self.__data[dataid][i,j], self.__data[dataid][i+1,j], threshold),self.__designdata[design][1][i,j],self.__designdata[design][1][i+1,j]
+                    print "{:.6e} {:.6e} {:.6e} {:.6e} {:.6e} {:.6e} {:.6e}".format(self.__designdata[design][0][i,j],self.__designdata[design][0][i+1,j],self.__designdata[design][1][i,j],self.__designdata[design][1][i+1,j],self.__data[dataid][i,j],self.__data[dataid][i+1,j],self.interpolate_log_log(self.__designdata[design][1][i,j], self.__designdata[design][1][i+1,j], self.__data[dataid][i,j], self.__data[dataid][i+1,j], threshold))
                     r.append(np.array([
-                                self.interpolate_log_log(self.__designdata[design][0][i,j], self.__designdata[design][0][i+1,j], self.__data[dataid][i,j], self.__data[dataid][i+1,j], threshold),
+                                self.__designdata[design][0][i,j],
                                 self.interpolate_log_log(self.__designdata[design][1][i,j], self.__designdata[design][1][i+1,j], self.__data[dataid][i,j], self.__data[dataid][i+1,j], threshold)
                             ]))
-            except:
-                pass
-            try:
+            if j + 1 < platesize[1]:
                 if (self.__data[dataid][i,j] - threshold) * (self.__data[dataid][i,j+1] - threshold) < 0:
                     r.append(np.array([
                                 self.interpolate_log_log(self.__designdata[design][0][i,j], self.__designdata[design][0][i,j+1], self.__data[dataid][i,j], self.__data[dataid][i,j+1], threshold),
-                                self.interpolate_log_log(self.__designdata[design][1][i,j], self.__designdata[design][1][i,j+1], self.__data[dataid][i,j], self.__data[dataid][i,j+1], threshold)
+                                self.__designdata[design][1][i,j]
                             ]))
-            except:
-                pass
+
         if len(r) > 0:
             return np.vstack(r)
         else:
@@ -283,7 +286,9 @@ class PlateReaderData(object):
 
 
     def transitions(self,threshold):
-        return [(self.__filenames[i],self.__sheetnames[i],self.compute_growth_nogrowth_transition(i,threshold,self.__designassignment[i])) for i in range(len(self.__data))]
+        return [(self.__filenames[i],self.__sheetnames[i],self.old_compute_growth_nogrowth_transition(i,threshold,self.__designassignment[i])) for i in range(len(self.__data))]
+    
+    
 
 
     def __iter__(self):
