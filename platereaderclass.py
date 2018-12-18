@@ -98,7 +98,7 @@ class PlateReaderData(object):
         if width is None:   width = self.__read_coordinates['xwidth']
         if height is None:  height = self.__read_coordinates['yheight']
         
-        return np.array([[sheet['{:s}{:d}'.format(self.column_string(i),j)].value for i in range(x0,x0+width)] for j in range(y0,y0+height)])
+        return np.array([[sheet['{:s}{:d}'.format(self.column_string(i),j)].value for i in range(x0,x0+width)] for j in range(y0,y0+height)],dtype=np.float)
 
 
     def read_initial_conditions(self,data,sheetname,xab = 4, yab = 14, xcells = 4, ycells = 3, width = 12, height = 8):
@@ -264,19 +264,22 @@ class PlateReaderData(object):
 
     def compute_growth_nogrowth_transition(self,dataid,threshold,design = 0, geom = True):
         r = list()
+        platesize = np.shape(self.__data[dataid])
         allcont = measure.find_contours(self.__data[dataid],threshold)
         for cont in allcont:
             for pos in cont:
                     # logarithmic interpolation
                     i, j  = int(pos[0]//1), int(pos[1]//1)
                     di,dj = pos[0] - i, pos[1] - j
+
                     x = self.__designdata[design][0][i,j]
-                    if i + 1 < np.shape(self.__designdata[design][0])[0]:
-                        x *= np.power(self.__designdata[design][0][i+1,j]/self.__designdata[design][0][i,j],di)
-                    y = self.__designdata[design][1][i,j]
-                    if j + 1 < np.shape(self.__designdata[design][0])[1]:
-                        y *= np.power(self.__designdata[design][1][i,j+1]/self.__designdata[design][1][i,j],dj)
+                    if j + 1 < platesize[1] and dj > 0:
+                        x *= np.power(self.__designdata[design][0][i,j+1]/self.__designdata[design][0][i,j],dj)
                     
+                    y = self.__designdata[design][1][i,j]
+                    if i + 1 < platesize[0] and di > 0:
+                        y *= np.power(self.__designdata[design][1][i+1,j]/self.__designdata[design][1][i,j],di)
+                        
                     r.append(np.array([x,y]))
 
         if len(r) > 0:
@@ -286,7 +289,7 @@ class PlateReaderData(object):
 
 
     def transitions(self,threshold):
-        return [(self.__filenames[i],self.__sheetnames[i],self.old_compute_growth_nogrowth_transition(i,threshold,self.__designassignment[i])) for i in range(len(self.__data))]
+        return [(self.__filenames[i],self.__sheetnames[i],self.compute_growth_nogrowth_transition(i,threshold,self.__designassignment[i])) for i in range(len(self.__data))]
     
     
 
