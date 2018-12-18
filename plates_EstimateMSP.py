@@ -214,7 +214,7 @@ def main():
             sys.stderr.write("  n0(x,{:e},{:e}) w l lw 4 lc rgb \"#8ae234\",\\\n".format(tau4,smic3))
             sys.stderr.write("  n0(x,{:e},{:e}) w l lw 4 lc rgb \"#a40000\",\\\n".format(tau1[0],smic1[0]))
             sys.stderr.write("  n0(x,{:e},{:e}) w l lw 4 lc rgb \"#ef2929\",\\\n".format(tau2[0],smic2[0]))
-            sys.stderr.write("  \"{:s}\" u 1:2 w p pt 7 ps 2 lc rgb \"#3465a4\"\n".format(basename + '.treshold{:f}'.format(args.growthThreshold)))
+            sys.stderr.write("  \"{:s}\" u 1:2 w p pt 7 ps 2 lc rgb \"#3465a4\"\n".format(basename + '.threshold{:f}'.format(args.growthThreshold)))
             sys.stderr.write("\n")
         i += 1
     
