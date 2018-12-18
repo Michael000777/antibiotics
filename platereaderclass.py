@@ -237,31 +237,6 @@ class PlateReaderData(object):
             return x1
 
 
-    def old_compute_growth_nogrowth_transition(self,dataid,threshold,design = 0,geom = True):
-        r = list()
-        platesize = np.shape(self.__data[dataid])
-        
-        for i,j in itertools.product(np.arange(platesize[0]),np.arange(platesize[1])):
-            if i + 1 < platesize[0]:
-                if (self.__data[dataid][i,j] - threshold) * (self.__data[dataid][i+1,j] - threshold) < 0:
-                    #print self.interpolate_log_log(self.__designdata[design][1][i,j], self.__designdata[design][1][i+1,j], self.__data[dataid][i,j], self.__data[dataid][i+1,j], threshold),self.__designdata[design][1][i,j],self.__designdata[design][1][i+1,j]
-                    print "{:.6e} {:.6e} {:.6e} {:.6e} {:.6e} {:.6e} {:.6e}".format(self.__designdata[design][0][i,j],self.__designdata[design][0][i+1,j],self.__designdata[design][1][i,j],self.__designdata[design][1][i+1,j],self.__data[dataid][i,j],self.__data[dataid][i+1,j],self.interpolate_log_log(self.__designdata[design][1][i,j], self.__designdata[design][1][i+1,j], self.__data[dataid][i,j], self.__data[dataid][i+1,j], threshold))
-                    r.append(np.array([
-                                self.__designdata[design][0][i,j],
-                                self.interpolate_log_log(self.__designdata[design][1][i,j], self.__designdata[design][1][i+1,j], self.__data[dataid][i,j], self.__data[dataid][i+1,j], threshold)
-                            ]))
-            if j + 1 < platesize[1]:
-                if (self.__data[dataid][i,j] - threshold) * (self.__data[dataid][i,j+1] - threshold) < 0:
-                    r.append(np.array([
-                                self.interpolate_log_log(self.__designdata[design][0][i,j], self.__designdata[design][0][i,j+1], self.__data[dataid][i,j], self.__data[dataid][i,j+1], threshold),
-                                self.__designdata[design][1][i,j]
-                            ]))
-
-        if len(r) > 0:
-            return np.vstack(r)
-        else:
-            return None
-
     def compute_growth_nogrowth_transition(self,dataid,threshold,design = 0, geom = True):
         r = list()
         platesize = np.shape(self.__data[dataid])
