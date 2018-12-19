@@ -13,15 +13,7 @@ args = parser.parse_args()
 
 data = prc.PlateReaderData(**vars(args))
 
-#for i in range(data.count_design()):
-    #print data.get_design(i)
-
-#for fn,title,platedata in data:
-    #print fn,title
-    ##print platedata
-
-
-for fn,title,transitions in data.transitions(threshold = .1):
+for fn,title,transitions,design in data.transitions(threshold = .1):
     print title
     print transitions
 

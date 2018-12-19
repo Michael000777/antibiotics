@@ -125,15 +125,17 @@ class PlateReaderData(object):
     
     
     def rescale(self,g):
-        
-        if self.__logscale:
-            r = np.log(g)
-            r[r<self.__logmin] = self.__logmin
+        if self.__rescale:
+            if self.__logscale:
+                r = np.log(g)
+                r[r<self.__logmin] = self.__logmin
+            else:
+                r = g[:,:]
+                
+            r = (r - np.min(r))/(np.max(r) - np.min(r))
+            return r
         else:
-            r = g[:,:]
-            
-        r = (r - np.min(r))/(np.max(r) - np.min(r))
-        return r
+            return g
     
     
     def extract_figure_file_parameters(self,kwargs):
@@ -267,11 +269,12 @@ class PlateReaderData(object):
         return [(self.__filenames[i],self.__sheetnames[i],self.compute_growth_nogrowth_transition(i,threshold,self.__designassignment[i])) for i in range(len(self.__data))]
     
     
-
+    def __int__(self):
+        return len(self.__data)
 
     def __iter__(self):
-        for fn,title,platedata in zip(self.__filenames,self.__sheetnames,self.__data):
-            yield fn,title,self.rescale(platedata)
+        for fn,title,platedata,designassignment in zip(self.__filenames,self.__sheetnames,self.__data,self.__designassignment):
+            yield fn,title,self.rescale(platedata),designassignment
     
     
     def __len__(self):
