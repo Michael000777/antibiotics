@@ -14,6 +14,8 @@ class PlateReaderData(object):
     def __init__(self,**kwargs):
 
         self.__infilenames = kwargs.get("infiles",[])
+        if self.__infilenames is None:
+            raise IOError('No input data provided. Use option -i FILENAME1 [FILENAME2 ...]')
         self.__ignoresheetsparameter = kwargs.get("ignoresheets",[])
 
         self.extract_figure_file_parameters(kwargs)
@@ -40,31 +42,34 @@ class PlateReaderData(object):
             self.__ignoresheets += self.__ignoresheetsparameter
         
         # load all data at __init__()
-        for fn in self.__infilenames:
-            try:
-                data = openpyxl.load_workbook(fn)
-            except:
-                continue
-            
-            for designsheet in [s for s in data if self.ignoresheet(s.title)]:
-                self.__designdata.append(self.read_initial_conditions(data,designsheet.title))
-                self.__designtitle.append(designsheet.title)
-            i = 0
-            for sheet in [s for s in data if not self.ignoresheet(s.title)]:
-                self.__data.append(self.read_sheet(sheet))
-                self.__sheetnames.append(sheet.title)
-                self.__filenames.append(fn)
+        if len(self.__infilenames) > 0:
+            for fn in self.__infilenames:
                 try:
-                    design = kwargs.get("designassignment",[])[i]
-                    if not 0 <= design < len(self.__designdata):
-                        raise KeyError
-                    self.__designassignment.append(design)
+                    data = openpyxl.load_workbook(fn)
                 except:
-                    self.__designassignment.append(0)
-                i+=1
+                    continue
+                
+                for designsheet in [s for s in data if self.ignoresheet(s.title)]:
+                    self.__designdata.append(self.read_initial_conditions(data,designsheet.title))
+                    self.__designtitle.append(designsheet.title)
+                i = 0
+                for sheet in [s for s in data if not self.ignoresheet(s.title)]:
+                    self.__data.append(self.read_sheet(sheet))
+                    self.__sheetnames.append(sheet.title)
+                    self.__filenames.append(fn)
+                    try:
+                        design = kwargs.get("designassignment",[])[i]
+                        if not 0 <= design < len(self.__designdata):
+                            raise KeyError
+                        self.__designassignment.append(design)
+                    except:
+                        self.__designassignment.append(0)
+                    i+=1
+        else:
+            raise IOError('No input data provided. Use option -i FILENAME1 [FILENAME2 ...]')
+                
             
         
-    
     
     def column_string(self,n):
         div=n
@@ -267,6 +272,27 @@ class PlateReaderData(object):
 
     def transitions(self,threshold):
         return [(self.__filenames[i],self.__sheetnames[i],self.compute_growth_nogrowth_transition(i,threshold,self.__designassignment[i])) for i in range(len(self.__data))]
+    
+    
+    
+    def write_data_to_file(self,dataID,filename = 'out'):
+        xlist = self.__designdata[self.__designassignment[dataID]][0]
+        ylist = self.__designdata[self.__designassignment[dataID]][1]
+        zlist = self.__data[dataID]
+        s = np.shape(zlist)
+        
+        fp = open(filename,'w')
+        
+        for i in range(s[0]):
+            for j in range(s[1]):
+                fp.write('{} {} {}\n'.format(xlist[i,j],ylist[i,j],zlist[i,j]))
+            fp.write('\n')
+        
+        fp.close()
+    
+    
+    def get_title(self,dataID):
+        return self.__sheetnames[dataID]
     
     
     def __int__(self):

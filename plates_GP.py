@@ -13,15 +13,16 @@ import platereaderclass as prc
 parser = argparse.ArgumentParser()
 parser.add_argument("-i","--infiles",nargs="*",default=[])
 parser.add_argument("-D","--designassignment",nargs="*",default=None)
+parser.add_argument("-n","--outputgrid",default=50,type=int)
 args = parser.parse_args()
 
 data = prc.PlateReaderData(**vars(args))
 
 for fn,title,platedata,designID in data:
     print title
-    print platedata
+    #print platedata
     
-    kernel = sklgp.kernels.ConstantKernel(1,(1e-3,1e3))
+    kernel = sklgp.kernels.Matern(1,(1e-5,1e5),1.5)
     gp = sklgp.GaussianProcessRegressor(kernel = kernel, n_restarts_optimizer = 10)
     
     datagrid0 = data.get_design(designid = designID)[0].flatten()
@@ -29,18 +30,21 @@ for fn,title,platedata,designID in data:
     
     design = np.array([[np.log(x),np.log(y)] for x,y in zip(datagrid0,datagrid1)])
     pd = np.array([platedata.flatten()]).T
+
+    #print design
+    #print np.shape(design)
     
     gp.fit(design,pd)
 
-    grid0 = np.linspace(np.log(np.min(datagrid0)),np.log(np.max(datagrid0)))
-    grid1 = np.linspace(np.log(np.min(datagrid1)),np.log(np.max(datagrid1)))
+    grid0 = np.linspace(np.log(np.min(datagrid0)),np.log(np.max(datagrid0)),num=args.outputgrid)
+    grid1 = np.linspace(np.log(np.min(datagrid1)),np.log(np.max(datagrid1)),num=args.outputgrid)
     
     grid  = np.array([[x[0],x[1]] for x in product(grid0,grid1)])
     
     pdpred = gp.predict(grid)
     
-    print pdpred
-    print grid
+    #print pdpred
+    #print grid
     
     basename = title.replace(' ','_')
     
@@ -50,5 +54,5 @@ for fn,title,platedata,designID in data:
     fp.close()
     
     
-    break
+    #break
     
