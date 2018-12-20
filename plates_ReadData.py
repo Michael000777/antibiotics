@@ -9,6 +9,7 @@ import platereaderclass as prc
 parser = argparse.ArgumentParser()
 parser.add_argument("-i","--infiles",nargs="*")
 parser.add_argument("-o","--outfileprefix",default="",type=str)
+parser.add_argument("-E","--error_estimates",default=False,action="store_true")
 args = parser.parse_args()
 
 data = prc.PlateReaderData(**vars(args))

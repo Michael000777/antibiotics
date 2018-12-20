@@ -275,21 +275,50 @@ class PlateReaderData(object):
     
     
     
-    def write_data_to_file(self,dataID,filename = 'out'):
+    def write_data_to_file(self,dataID,filename = 'out',include_error_estimates = False):
         xlist = self.__designdata[self.__designassignment[dataID]][0]
         ylist = self.__designdata[self.__designassignment[dataID]][1]
         zlist = self.__data[dataID]
+        if include_error_estimates:
+            elist = self.get_noise_estimates(dataID)
         s = np.shape(zlist)
         
         fp = open(filename,'w')
         
         for i in range(s[0]):
             for j in range(s[1]):
-                fp.write('{} {} {}\n'.format(xlist[i,j],ylist[i,j],zlist[i,j]))
+                if include_error_estimates:
+                    fp.write('{} {} {} {}\n'.format(xlist[i,j],ylist[i,j],zlist[i,j],elist[i,j]))
+                else:
+                    fp.write('{} {} {}\n'.format(xlist[i,j],ylist[i,j],zlist[i,j]))
             fp.write('\n')
         
         fp.close()
+
     
+    def get_noise_estimates(self,dataID):
+        shape = np.shape(self.__data[dataID])
+        ne = np.zeros(shape)
+        
+        #corners
+        ne[0,0]                   = stddev(self.__data[dataID][:2,:2])
+        ne[0,shape[1]-1]          = stddev(self.__data[dataID][:2:,-2:])
+        ne[shape[0]-1,0]          = stddev(self.__data[dataID][-2:,:2])
+        ne[shape[0]-1,shape[1]-1] = stddev(self.__data[dataID][-2:,-2:])
+        
+        for i in range(1,shape[0]-1):
+            ne[i,0]               = stddev(self.__data[dataID][i-1:i+1,:2])
+            ne[i,shape[0]-1]      = stddev(self.__data[dataID][i-1:i+1,-2:])
+        
+        for j in range(1,shape[1]-1):
+            ne[0,j]               = stddev(self.__data[dataID][:2,j-1:j+1])
+            ne[shape[1]-1,j]      = stddev(self.__data[dataID][-2:j-1:j+2])
+            
+            for i in range(1,shape[0]-1):
+                ne[i,j]           = stddev(self.__data[dataID][i-1:i+1,j-1:j+1])
+        
+        return ne
+
     
     def get_title(self,dataID):
         return self.__sheetnames[dataID]
