@@ -299,23 +299,26 @@ class PlateReaderData(object):
     def get_noise_estimates(self,dataID):
         shape = np.shape(self.__data[dataID])
         ne = np.zeros(shape)
-        
+
         #corners
-        ne[0,0]                   = stddev(self.__data[dataID][:2,:2])
-        ne[0,shape[1]-1]          = stddev(self.__data[dataID][:2:,-2:])
-        ne[shape[0]-1,0]          = stddev(self.__data[dataID][-2:,:2])
-        ne[shape[0]-1,shape[1]-1] = stddev(self.__data[dataID][-2:,-2:])
-        
+        ne[0,0]                   = np.std(self.__data[dataID][:2,:2])
+        ne[0,shape[1]-1]          = np.std(self.__data[dataID][:2:,-2:])
+        ne[shape[0]-1,0]          = np.std(self.__data[dataID][-2:,:2])
+        ne[shape[0]-1,shape[1]-1] = np.std(self.__data[dataID][-2:,-2:])
+
+        # edges
         for i in range(1,shape[0]-1):
-            ne[i,0]               = stddev(self.__data[dataID][i-1:i+1,:2])
-            ne[i,shape[0]-1]      = stddev(self.__data[dataID][i-1:i+1,-2:])
+            ne[i,0]               = np.std(self.__data[dataID][i-1:i+1,:2])
+            ne[i,shape[1]-1]      = np.std(self.__data[dataID][i-1:i+1,-2:])
         
+        # edges
         for j in range(1,shape[1]-1):
-            ne[0,j]               = stddev(self.__data[dataID][:2,j-1:j+1])
-            ne[shape[1]-1,j]      = stddev(self.__data[dataID][-2:j-1:j+2])
+            ne[0,j]               = np.std(self.__data[dataID][:2,j-1:j+1])
+            ne[shape[0]-1,j]      = np.std(self.__data[dataID][-2:,j-1:j+1])
             
+            # bulk
             for i in range(1,shape[0]-1):
-                ne[i,j]           = stddev(self.__data[dataID][i-1:i+1,j-1:j+1])
+                ne[i,j]           = np.std(self.__data[dataID][i-1:i+1,j-1:j+1])
         
         return ne
 
@@ -324,14 +327,15 @@ class PlateReaderData(object):
         return self.__sheetnames[dataID]
     
     
-    def __int__(self):
-        return len(self.__data)
 
     def __iter__(self):
         for fn,title,platedata,designassignment in zip(self.__filenames,self.__sheetnames,self.__data,self.__designassignment):
             yield fn,title,self.rescale(platedata),designassignment
     
     
+    def __int__(self):
+        return len(self.__data)
+
     def __len__(self):
         return len(self.__data)
     
@@ -340,6 +344,12 @@ class PlateReaderData(object):
             return len(self.__data)
         elif key == "count_design":
             return len(self.__designdata)
+        elif key == "title":
+            return self.__sheetnames
+        elif key == "filenames":
+            return self.__filenames
         else:
             super(PlateReaderData,self).__getitem__(key)
     
+    def __getitem__(self,key):
+        return self.__data[key]
