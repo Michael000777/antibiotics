@@ -46,7 +46,10 @@ for dataID in range(len(data)):
     else:                           outfile = title.replace(' ','_')
     
     fp = open(outfile,'w')
+    lastx = 0
     for x,z in zip(grid,platedata_prediction):
+        if x[0] != lastx:fp.write('\n')
+        lastx = x[0]
         fp.write('{:.6e} {:.6e} {:.6e}\n'.format(np.exp(x[0]),np.exp(x[1]),z[0]))
     fp.close()
     
