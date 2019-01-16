@@ -344,7 +344,7 @@ class PlateReaderData(object):
             return len(self.__data)
         elif key == "count_design":
             return len(self.__designdata)
-        elif key == "title":
+        elif key == "titles":
             return self.__sheetnames
         elif key == "filenames":
             return self.__filenames
