@@ -322,10 +322,50 @@ class PlateReaderData(object):
         
         return ne
 
-    
-    def get_title(self,dataID):
-        return self.__sheetnames[dataID]
-    
+
+    def EstimateThreshold(self,dataID = None,historange = None, bins = None, logscale = True):
+        # otsu's method
+        # described in IEEE TRANSACTIONS ON SYSTEMS, MAN, AND CYBERNETICS (1979)
+        
+        x = list()
+        if dataID is None:
+            for i in range(len(self)):
+                x += list(self.__data[i].flatten())
+        elif isinstance(dataID,(list)):
+            for i in dataID:
+                x += list(self.__data[i].flatten())
+        elif isinstance(dataID,int):
+            x = list(self.__data[dataID])
+        else:
+            raise TypeError
+        x = np.array(x)
+        if logscale: x = np.log(x)
+
+        if historange is None:
+            if bins is None:
+                count,b = np.histogram(x)
+            else:
+                count,b = np.histogram(x,bins=bins)
+        else:
+            if bins is None:
+                count,b = np.histogram(x,range=historange)
+            else:
+                count,b = np.histogram(x,range=historange,bins=bins)
+        bmean   = b[:-1] + .5 * np.diff(b)
+        
+        p   = count/float(sum(count))
+        w   = np.array([np.sum(p[:k]) for k in range(args.bins)])
+        m   = np.array([np.dot(p[:k],bmean[:k]) for k in range(args.bins)])
+        mT  = np.dot(p,bmean)
+        
+        sB  = np.array([(mT * w[k] - m[k])**2/(w[k]*(1.-w[k])) if w[k]*(1.-w[k]) > 0 else 0 for k in range(args.bins)])
+        idx = np.argmax(sB)
+        
+        if logscale:
+            return np.exp(bmean[idx])
+        else:
+            return bmean[idx]
+        
     
 
     def __iter__(self):
