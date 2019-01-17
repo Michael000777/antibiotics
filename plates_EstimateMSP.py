@@ -146,6 +146,7 @@ def main():
     parser_alg.add_argument("-D", "--designassignment", default = [],    type = int, nargs = "*")
     parser_alg.add_argument("-L", "--AB_lambda",        default = 1,     type = float)
     parser_alg.add_argument("-l", "--AB_lambdaStdDev" , default = 0,     type = float)
+    parser_alg.add_argument("-R", "--GaussianProcessRegression", default = False, action = "store_true")
     
     args = parser.parse_args()
     
@@ -190,7 +191,7 @@ def main():
     
     i = 0
     lastfn = ""
-    for fn,title,transitions in data.transitions(threshold = args.growthThreshold):
+    for fn,title,transitions in data.transitions(threshold = args.growthThreshold, useGPR = args.GaussianProcessRegression):
         basename = (args.BasenameExtension + title).replace(' ','_')
         if fn != lastfn:
             print("# data from '{:s}'".format(fn))

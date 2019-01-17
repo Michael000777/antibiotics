@@ -6,8 +6,10 @@ import sys,math
 import itertools
 import openpyxl
 import cairo
+import sklearn.gaussian_process as sklgp
 
 from skimage import measure
+
 
 
 class PlateReaderData(object):
@@ -257,30 +259,29 @@ class PlateReaderData(object):
 
 
     def interpolate_log_log(self,x1,x2,y1,y2,ythreshold):
-        #print "{:.6e} {:.6e} {:.6e} {:.6e} {:.6e}".format(x1,x2,y1,y2,ythreshold)
         if x1 != x2:
             return x1 * np.exp( np.log(ythreshold/y1) * np.log(x2/x1) / np.log(y2/y1) )
         else:
             return x1
 
 
-    def compute_growth_nogrowth_transition(self,dataid,threshold,design = 0, geom = True):
+    def compute_growth_nogrowth_transition(self,dataID,threshold, geom = True):
         r = list()
-        platesize = np.shape(self.__data[dataid])
-        allcont = measure.find_contours(self.__data[dataid],threshold)
+        platesize = np.shape(self.__data[dataID])
+        allcont = measure.find_contours(self.__data[dataID],threshold)
         for cont in allcont:
             for pos in cont:
                     # logarithmic interpolation
                     i, j  = int(pos[0]//1), int(pos[1]//1)
                     di,dj = pos[0] - i, pos[1] - j
 
-                    x = self.__designdata[design][0][i,j]
+                    x = self.__designdata[self.__designassignment[dataID]][0][i,j]
                     if j + 1 < platesize[1] and dj > 0:
-                        x *= np.power(self.__designdata[design][0][i,j+1]/self.__designdata[design][0][i,j],dj)
+                        x *= np.power(self.__designdata[self.__designassignment[dataID]][0][i,j+1]/self.__designdata[self.__designassignment[dataID]][0][i,j],dj)
                     
-                    y = self.__designdata[design][1][i,j]
+                    y = self.__designdata[self.__designassignment[dataID]][1][i,j]
                     if i + 1 < platesize[0] and di > 0:
-                        y *= np.power(self.__designdata[design][1][i+1,j]/self.__designdata[design][1][i,j],di)
+                        y *= np.power(self.__designdata[self.__designassignment[dataID]][1][i+1,j]/self.__designdata[self.__designassignment[dataID]][1][i,j],di)
                         
                     r.append(np.array([x,y]))
 
@@ -292,9 +293,10 @@ class PlateReaderData(object):
 
     def transitions(self,threshold,useGPR = False):
         if useGPR:
-            return [(self.__filenames[i],self.__sheetnames[i],self.compute_growth_nogrowth_transition_GPR(i) for i in range(len(self.__data))]
+            threshold = self.EstimateGrowthThreshold(dataID = None,historange = (-7,1),bins = 30)
+            return [(self.__filenames[i],self.__sheetnames[i],self.compute_growth_nogrowth_transition_GPR(i,threshold)) for i in range(len(self.__data))]
         else:
-            return [(self.__filenames[i],self.__sheetnames[i],self.compute_growth_nogrowth_transition(i,threshold,self.__designassignment[i])) for i in range(len(self.__data))]
+            return [(self.__filenames[i],self.__sheetnames[i],self.compute_growth_nogrowth_transition(i,threshold)) for i in range(len(self.__data))]
     
     
     
@@ -436,8 +438,8 @@ class PlateReaderData(object):
         # main routine of GPR
         
         # reformat input data into correct array sizes
-        datagrid0   = self.__designdata[dataID][0].flatten()
-        datagrid1   = self.__designdata[dataID][1].flatten()
+        datagrid0   = self.__designdata[self.__designassignment[dataID]][0].flatten()
+        datagrid1   = self.__designdata[self.__designassignment[dataID]][1].flatten()
         if AxesLogScale:
             design  = np.array([[np.log(x),np.log(y)] for x,y in zip(datagrid0,datagrid1)])
         else:
@@ -446,7 +448,7 @@ class PlateReaderData(object):
 
         
         # define kernels for Gaussian Process
-        kernel = generate_kernel(args.Kernels)
+        kernel = generate_kernel(kernellist)
         
         # initiate GPR
         gp = sklgp.GaussianProcessRegressor(kernel = kernel, n_restarts_optimizer = restarts_optimizer)
@@ -457,11 +459,11 @@ class PlateReaderData(object):
         # use GPR to estimate values on (fine) grid
         if isinstance(outputgrid,(list,tuple)):
             grid0            = np.linspace(np.log(np.min(datagrid0)),np.log(np.max(datagrid0)),num=outputgrid[0])
-            grid1            = np.linspace(np.log(np.min(datagrid1)),np.log(np.max(datagrid1)),num=outputGrid[1])
+            grid1            = np.linspace(np.log(np.min(datagrid1)),np.log(np.max(datagrid1)),num=outputgrid[1])
             outshape         = (outputgrid[0],outputgrid[1])
         elif isinstance(outputgrid,int):
             grid0            = np.linspace(np.log(np.min(datagrid0)),np.log(np.max(datagrid0)),num=outputgrid)
-            grid1            = np.linspace(np.log(np.min(datagrid1)),np.log(np.max(datagrid1)),num=outputGrid)
+            grid1            = np.linspace(np.log(np.min(datagrid1)),np.log(np.max(datagrid1)),num=outputgrid)
             outshape         = (outputgrid,outputgrid)
         else:
             raise TypeError
@@ -474,9 +476,7 @@ class PlateReaderData(object):
             return grid0, grid1, platedata_prediction.reshape(outshape)
     
 
-    def compute_growth_nogrowth_transition_GPR(self,dataID):
-        
-        threshold          = self.EstimateGrowthThreshold(dataID = None,historange = (-7,1),bins = 30)
+    def compute_growth_nogrowth_transition_GPR(self,dataID,threshold):
         grid0,grid1,pdpred = self.GaussianProcessRegression(dataID)
         contours           = measure.find_contours(pdpred,threshold)
         
