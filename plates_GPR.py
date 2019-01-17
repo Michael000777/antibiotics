@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 
 import numpy as np
 import argparse
@@ -29,11 +29,10 @@ def add_kernel(kernel,newkernel):
     return kernel
 
 
-def generate_kernel(argumets):
+def generate_kernel(kernellist):
     available_kernels = ['CONST', 'WHITE', 'MATERN', 'RBF', 'EXPSINESQUARED', 'DOTPRODUCT', 'RATIONALQUADRATIC']
     kernel = None
-
-    klist = [ku.upper() for ku in args.kernels if ku.upper() in available_kernels]
+    klist = [ku.upper() for ku in kernellist if ku.upper() in available_kernels]
     for k in klist:
         kernel = add_kernel(kernel,k)
     if not kernel is None:
@@ -43,6 +42,7 @@ def generate_kernel(argumets):
 
 
 def main():
+    
     parser = argparse.ArgumentParser()
     
     parser_io = parser.add_argument_group(description = "==== I/O parameters ====")
@@ -50,9 +50,10 @@ def main():
     parser_io.add_argument("-D","--designassignment",nargs="*",default=None)
     parser_io.add_argument("-o","--OutfilePrefix",default="GPR",type=str)
     parser_io.add_argument("-n","--OutputGrid",default=50,type=int)
+    parser_io.add_argument("-v","--verbose", default = False, action = "store_true")
     
     parser_alg = parser.add_argument_group(description = "==== Algorithm parameters ====")
-    parser_alg.add_argument("-K","--Kernels",nargs="*", default = "const white matern")
+    parser_alg.add_argument("-K","--Kernels",nargs="*", default = ["const","white","matern"])
     parser_alg.add_argument("-E","--ErrorEstimates",default=False,action="store_true")
     parser_alg.add_argument("-N","--RestartsOptimizer",default = 10, type = int)
     
@@ -65,7 +66,7 @@ def main():
     # iterate over all sheets loaded from all files
     for dataID in range(len(data)):
         title = data.titles[dataID]
-        print(title)
+        if args.verbose:print('{:40s} (from file "{}")'.format(title,data.filenames[dataID]))
         
         # load cellcount, AB conc (axes) and data
         datagrid0         = data.get_design(dataID = dataID)[0].flatten()
@@ -76,7 +77,7 @@ def main():
 
         # define kernels for Gaussian Process
         kernel = generate_kernel(args.Kernels)
-        if args.error_estimates:
+        if args.ErrorEstimates:
             if 'WHITE' not in [k.upper() for k in args.Kernels]:
                 kernel = add_kernel(kernel,'WHITE')
 
