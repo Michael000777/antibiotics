@@ -1,10 +1,14 @@
 #!/usr/bin/env python
 
+from __future__ import print_function
+
 import numpy as np
 import argparse
 import sys,math
 import itertools
 import sklearn.gaussian_process as sklgp
+
+from skimage import measure
 
 import platereaderclass as prc
 
@@ -107,6 +111,29 @@ def main():
             fp.write('{:.6e} {:.6e} {:.6e}\n'.format(np.exp(x[0]),np.exp(x[1]),z[0]))
         fp.close()
 
+
+
+        # use inferred surface to estimate when population is crossing the threshold between growth/no-growth
+        
+        threshold = data.EstimateGrowthThreshold(dataID = None,historange = (-7,1),bins = 30)
+        print('  threshold = {}'.format(threshold))
+        pdpred    = platedata_prediction.reshape((args.OutputGrid,args.OutputGrid))
+        contours  = measure.find_contours(pdpred,threshold)
+        
+        finalc    = list()
+        for c in contours:
+            for i in range(len(c)):
+                ix, iy = int(np.floor(c[i,0])), int(np.floor(c[i,1]))
+                px, py = c[i,0] - ix, c[i,1] - iy
+                try:    cx = (1.-px)*grid0[ix] + px*grid0[ix+1]
+                except: cx = grid0[ix]
+                try:    cy = (1.-py)*grid1[iy] + py*grid1[iy+1]
+                except: cy = grid1[iy]
+                finalc.append(np.exp([cx,cy]))
+
+        finalc = np.vstack(finalc)
+        np.savetxt(outfile + '.threshold',finalc)
+        
 
 
 if __name__ == "__main__":

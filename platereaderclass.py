@@ -290,8 +290,11 @@ class PlateReaderData(object):
             return None
 
 
-    def transitions(self,threshold):
-        return [(self.__filenames[i],self.__sheetnames[i],self.compute_growth_nogrowth_transition(i,threshold,self.__designassignment[i])) for i in range(len(self.__data))]
+    def transitions(self,threshold,useGPR = False):
+        if useGPR:
+            return [(self.__filenames[i],self.__sheetnames[i],self.compute_growth_nogrowth_transition_GPR(i) for i in range(len(self.__data))]
+        else:
+            return [(self.__filenames[i],self.__sheetnames[i],self.compute_growth_nogrowth_transition(i,threshold,self.__designassignment[i])) for i in range(len(self.__data))]
     
     
     
@@ -455,20 +458,40 @@ class PlateReaderData(object):
         if isinstance(outputgrid,(list,tuple)):
             grid0            = np.linspace(np.log(np.min(datagrid0)),np.log(np.max(datagrid0)),num=outputgrid[0])
             grid1            = np.linspace(np.log(np.min(datagrid1)),np.log(np.max(datagrid1)),num=outputGrid[1])
+            outshape         = (outputgrid[0],outputgrid[1])
         elif isinstance(outputgrid,int):
             grid0            = np.linspace(np.log(np.min(datagrid0)),np.log(np.max(datagrid0)),num=outputgrid)
             grid1            = np.linspace(np.log(np.min(datagrid1)),np.log(np.max(datagrid1)),num=outputGrid)
+            outshape         = (outputgrid,outputgrid)
         else:
             raise TypeError
         grid                 = np.array([[x[0],x[1]] for x in itertools.product(grid0,grid1)])
         platedata_prediction = gp.predict(grid)
         
         if AxesLogScale:
-            return np.exp(grid),platedata_prediction
+            return np.exp(grid0), np.exp(grid1), platedata_prediction.reshape(outshape)
         else:
-            return grid, platedata_prediction
+            return grid0, grid1, platedata_prediction.reshape(outshape)
     
-    
+
+    def compute_growth_nogrowth_transition_GPR(self,dataID):
+        
+        threshold          = self.EstimateGrowthThreshold(dataID = None,historange = (-7,1),bins = 30)
+        grid0,grid1,pdpred = self.GaussianProcessRegression(dataID)
+        contours           = measure.find_contours(pdpred,threshold)
+        
+        finalc    = list()
+        for c in contours:
+            for i in range(len(c)):
+                ix, iy = int(np.floor(c[i,0])), int(np.floor(c[i,1]))
+                px, py = c[i,0] - ix, c[i,1] - iy
+                try:    cx = (1.-px)*np.log(grid0[ix]) + px*np.log(grid0[ix+1])
+                except: cx = np.log(grid0[ix])
+                try:    cy = (1.-py)*np.log(grid1[iy]) + py*np.log(grid1[iy+1])
+                except: cy = np.log(grid1[iy])
+                finalc.append(np.exp([cx,cy]))
+        finalc = np.vstack(finalc)
+        return finalc
     
     
 
