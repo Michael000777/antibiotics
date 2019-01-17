@@ -326,17 +326,22 @@ class PlateReaderData(object):
     def EstimateThreshold(self,dataID = None,historange = None, bins = None, logscale = True):
         # otsu's method
         # described in IEEE TRANSACTIONS ON SYSTEMS, MAN, AND CYBERNETICS (1979)
+        # usually used to binarize photos into black/white, here we separate the growth/no-growth transition
         
         x = list()
         if dataID is None:
+            # all data is used
             for i in range(len(self)):
                 x += list(self.__data[i].flatten())
         elif isinstance(dataID,(list)):
+            # pick specific IDs, provided as list
             for i in dataID:
                 x += list(self.__data[i].flatten())
         elif isinstance(dataID,int):
+            # estimate threshold only from a single plate
             x = list(self.__data[dataID])
         else:
+            # something went wrong
             raise TypeError
         x = np.array(x)
         if logscale: x = np.log(x)
