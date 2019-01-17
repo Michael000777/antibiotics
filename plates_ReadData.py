@@ -20,7 +20,7 @@ def main():
     data = prc.PlateReaderData(**vars(args))
 
     for dataID in range(int(data)):
-        title = data.title[dataID]
+        title = data.titles[dataID]
         print title
         if len(args.outfileprefix) > 0: fn = (args.outfileprefix + '_' + title).replace(' ','_')
         else:                           fn = title.replace(' ','_')

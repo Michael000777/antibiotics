@@ -144,7 +144,7 @@ class PlateReaderData(object):
     
     
     def extract_figure_file_parameters(self,kwargs):
-        self.figureparameters = {   'colors':   ['3465a4','ffffff','2e3436','eeeeec','cc0000'],
+        self.figureparameters = {   'colors':   ['3465a4','ffffff','2e3436','eeeeec','a40000'],
                                     'wellradius': 20,
                                     'wellsize':50,
                                     'linewidth':3}
@@ -190,7 +190,7 @@ class PlateReaderData(object):
                     c = cFull * (1 - r) + cEmpty * r
                     context.set_source_rgb(c[0],c[1],c[2])
                     context.fill_preserve()
-                    if r < threshold:
+                    if r > threshold:
                         context.set_source_rgb(cBorderNoGrowth[0],cBorderNoGrowth[1],cBorderNoGrowth[2])
                     else:
                         context.set_source_rgb(cBorder[0],cBorder[1],cBorder[2])
@@ -371,11 +371,11 @@ class PlateReaderData(object):
         bincenter = binedges[:-1] + .5 * np.diff(binedges)
         
         p   = count/float(sum(count))
-        w   = np.array([np.sum(p[:k]) for k in range(args.bins)])
-        m   = np.array([np.dot(p[:k],bincenter[:k]) for k in range(args.bins)])
+        w   = np.array([np.sum(p[:k]) for k in range(bins)])
+        m   = np.array([np.dot(p[:k],bincenter[:k]) for k in range(bins)])
         mT  = np.dot(p,bincenter)
         
-        sB  = np.array([(mT * w[k] - m[k])**2/(w[k]*(1.-w[k])) if w[k]*(1.-w[k]) > 0 else 0 for k in range(args.bins)])
+        sB  = np.array([(mT * w[k] - m[k])**2/(w[k]*(1.-w[k])) if w[k]*(1.-w[k]) > 0 else 0 for k in range(bins)])
         idx = np.argmax(sB)
         
         if logscale:
