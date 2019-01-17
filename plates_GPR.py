@@ -54,6 +54,7 @@ def main():
     parser_io.add_argument("-o","--OutfilePrefix",default="GPR",type=str)
     parser_io.add_argument("-n","--OutputGrid",default=50,type=int)
     parser_io.add_argument("-v","--verbose", default = False, action = "store_true")
+    parser_io.add_argument("-T","--Threshold", default = False, action = "store_true")
     
     parser_alg = parser.add_argument_group(description = "==== Algorithm parameters ====")
     parser_alg.add_argument("-K","--Kernels",nargs="*", default = ["const","white","matern"])
@@ -113,26 +114,27 @@ def main():
 
 
 
-        # use inferred surface to estimate when population is crossing the threshold between growth/no-growth
-        
-        threshold = data.EstimateGrowthThreshold(dataID = None,historange = (-7,1),bins = 30)
-        print('  threshold = {}'.format(threshold))
-        pdpred    = platedata_prediction.reshape((args.OutputGrid,args.OutputGrid))
-        contours  = measure.find_contours(pdpred,threshold)
-        
-        finalc    = list()
-        for c in contours:
-            for i in range(len(c)):
-                ix, iy = int(np.floor(c[i,0])), int(np.floor(c[i,1]))
-                px, py = c[i,0] - ix, c[i,1] - iy
-                try:    cx = (1.-px)*grid0[ix] + px*grid0[ix+1]
-                except: cx = grid0[ix]
-                try:    cy = (1.-py)*grid1[iy] + py*grid1[iy+1]
-                except: cy = grid1[iy]
-                finalc.append(np.exp([cx,cy]))
+        if args.Threshold:
+            # use inferred surface to estimate when population is crossing the threshold between growth/no-growth
+            
+            threshold = data.EstimateGrowthThreshold(dataID = None,historange = (-7,1),bins = 30)
+            print('  threshold = {}'.format(threshold))
+            pdpred    = platedata_prediction.reshape((args.OutputGrid,args.OutputGrid))
+            contours  = measure.find_contours(pdpred,threshold)
+            
+            finalc    = list()
+            for c in contours:
+                for i in range(len(c)):
+                    ix, iy = int(np.floor(c[i,0])), int(np.floor(c[i,1]))
+                    px, py = c[i,0] - ix, c[i,1] - iy
+                    try:    cx = (1.-px)*grid0[ix] + px*grid0[ix+1]
+                    except: cx = grid0[ix]
+                    try:    cy = (1.-py)*grid1[iy] + py*grid1[iy+1]
+                    except: cy = grid1[iy]
+                    finalc.append(np.exp([cx,cy]))
 
-        finalc = np.vstack(finalc)
-        np.savetxt(outfile + '.threshold',finalc)
+            finalc = np.vstack(finalc)
+            np.savetxt(outfile + '.threshold',finalc)
         
 
 
