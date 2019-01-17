@@ -15,6 +15,18 @@ def main():
     parser_io.add_argument("-P","--WritePNG",         default = False, action = "store_true")
     parser_io.add_argument("-E","--ErrorEstimates",   default = False, action = "store_true")
     parser_io.add_argument("-v","--verbose",          default = False, action = "store_true")
+    
+    
+    parser_Figure = parser.add_argument_group(description = "==== parameters for graphical output ====")
+    parser_Figure.add_argument("-x","--FigureWellDistance",        default = 50, type = int)
+    parser_Figure.add_argument("-r","--FigureWellRadius",          default = 18, type = int)
+    parser_Figure.add_argument("-L","--FigureLinewidth",           default =  3, type = int)
+    parser_Figure.add_argument("-c","--FigureColorEmpty",          default = "d3d7cf")
+    parser_Figure.add_argument("-C","--FigureColorFull",           default = "cc0000")
+    parser_Figure.add_argument("-B","--FigureColorBackground",     default = None)
+    parser_Figure.add_argument("-b","--FigureColorBorder",         default = "2e3436")
+    parser_Figure.add_argument("-N","--FigureColorBorderNoGrowth", default = "a40000")
+    
     args = parser.parse_args()
 
     data = prc.PlateReaderData(**vars(args))

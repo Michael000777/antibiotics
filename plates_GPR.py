@@ -42,7 +42,6 @@ def generate_kernel(kernellist):
 
 
 def main():
-    
     parser = argparse.ArgumentParser()
     
     parser_io = parser.add_argument_group(description = "==== I/O parameters ====")

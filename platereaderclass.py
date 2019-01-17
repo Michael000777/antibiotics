@@ -144,11 +144,20 @@ class PlateReaderData(object):
     
     
     def extract_figure_file_parameters(self,kwargs):
+        # default values
         self.figureparameters = {   'colors':   ['3465a4','ffffff','2e3436','eeeeec','a40000'],
                                     'wellradius': 20,
                                     'wellsize':50,
                                     'linewidth':3}
-
+        # update default values if part of the argument dictionary
+        if kwargs.has_key('FigureWellDistance'):        self.figureparameters['wellsize']   = kwargs['FigureWellDistance']
+        if kwargs.has_key('FigureWellRadius'):          self.figureparameters['wellradius'] = kwargs['FigureWellRadius']
+        if kwargs.has_key('FigureLinewidth'):           self.figureparameters['linewidth']  = kwargs['FigureLinewidth']
+        if kwargs.has_key('FigureColorFull'):           self.figureparameters['colors'][0]  = kwargs['FigureColorFull']
+        if kwargs.has_key('FigureColorEmpty'):          self.figureparameters['colors'][1]  = kwargs['FigureColorEmpty']
+        if kwargs.has_key('FigureColorBackground'):     self.figureparameters['colors'][2]  = kwargs['FigureColorBackground']
+        if kwargs.has_key('FigureColorBorder'):         self.figureparameters['colors'][3]  = kwargs['FigureColorBorder']
+        if kwargs.has_key('FigureColorBorderNoGrowth'): self.figureparameters['colors'][4]  = kwargs['FigureColorBorderNoGrowth']
 
 
 
@@ -385,7 +394,9 @@ class PlateReaderData(object):
         
     
     
-    
+    def GaussianProcessRegression(self,dataID):
+        #dummy
+        return None
     
     
     
