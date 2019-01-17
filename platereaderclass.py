@@ -394,14 +394,79 @@ class PlateReaderData(object):
         
     
     
-    def GaussianProcessRegression(self,dataID):
-        #dummy
-        return None
     
-    
-    
-    
-    
+    def GaussianProcessRegression(self,dataID,kernellist = ['white','matern'], restarts_optimizer = 10, outputgrid = (50,50), AxesLogScale = True):
+
+        # helper routines to allow arbitrary combinations of kernels.
+        # as this is noisy data, 'WHITE' should be among the choices; testing revealed 'RBF' and 'MATERN' both worked reasonably well
+        def add_kernel(kernel,newkernel):
+            if not kernel is None:
+                if   newkernel == 'CONST':              kernel += sklgp.kernels.ConstantKernel()
+                elif newkernel == 'WHITE':              kernel += sklgp.kernels.WhiteKernel()
+                elif newkernel == 'MATERN':             kernel += sklgp.kernels.Matern()
+                elif newkernel == 'RBF':                kernel += sklgp.kernels.RBF()
+                elif newkernel == 'EXPSINESQUARED':     kernel += sklgp.kernels.ExpSineSquared()
+                elif newkernel == 'DOTPRODUCT':         kernel += sklgp.kernels.DotProduct()
+                elif newkernel == 'RATIONALQUADRATIC':  kernel += sklgp.kernels.RationalQuadratic()
+            else:
+                if   newkernel == 'CONST':              kernel  = sklgp.kernels.ConstantKernel()
+                elif newkernel == 'WHITE':              kernel  = sklgp.kernels.WhiteKernel()
+                elif newkernel == 'MATERN':             kernel  = sklgp.kernels.Matern()
+                elif newkernel == 'RBF':                kernel  = sklgp.kernels.RBF()
+                elif newkernel == 'EXPSINESQUARED':     kernel  = sklgp.kernels.ExpSineSquared()
+                elif newkernel == 'DOTPRODUCT':         kernel  = sklgp.kernels.DotProduct()
+                elif newkernel == 'RATIONALQUADRATIC':  kernel  = sklgp.kernels.RationalQuadratic()
+            return kernel
+
+        def generate_kernel(kernellist):
+            available_kernels = ['CONST', 'WHITE', 'MATERN', 'RBF', 'EXPSINESQUARED', 'DOTPRODUCT', 'RATIONALQUADRATIC']
+            kernel = None
+            klist = [ku.upper() for ku in kernellist if ku.upper() in available_kernels]
+            for k in klist:
+                kernel = add_kernel(kernel,k)
+            if not kernel is None:
+                return kernel
+            else:
+                raise ValueError('could not define kernel')
+
+        
+        # main routine of GPR
+        
+        # reformat input data into correct array sizes
+        datagrid0   = self.__designdata[dataID][0].flatten()
+        datagrid1   = self.__designdata[dataID][1].flatten()
+        if AxesLogScale:
+            design  = np.array([[np.log(x),np.log(y)] for x,y in zip(datagrid0,datagrid1)])
+        else:
+            design  = np.array([[x,y] for x,y in zip(datagrid0,datagrid1)])
+        platedata   = np.array([self.__data[dataID].flatten()]).T
+
+        
+        # define kernels for Gaussian Process
+        kernel = generate_kernel(args.Kernels)
+        
+        # initiate GPR
+        gp = sklgp.GaussianProcessRegressor(kernel = kernel, n_restarts_optimizer = restarts_optimizer)
+
+        # estimate hyperparamters for kernels
+        gp.fit(design,platedata)
+        
+        # use GPR to estimate values on (fine) grid
+        if isinstance(outputgrid,(list,tuple)):
+            grid0            = np.linspace(np.log(np.min(datagrid0)),np.log(np.max(datagrid0)),num=outputgrid[0])
+            grid1            = np.linspace(np.log(np.min(datagrid1)),np.log(np.max(datagrid1)),num=outputGrid[1])
+        elif isinstance(outputgrid,int):
+            grid0            = np.linspace(np.log(np.min(datagrid0)),np.log(np.max(datagrid0)),num=outputgrid)
+            grid1            = np.linspace(np.log(np.min(datagrid1)),np.log(np.max(datagrid1)),num=outputGrid)
+        else:
+            raise TypeError
+        grid                 = np.array([[x[0],x[1]] for x in itertools.product(grid0,grid1)])
+        platedata_prediction = gp.predict(grid)
+        
+        if AxesLogScale:
+            return np.exp(grid),platedata_prediction
+        else:
+            return grid, platedata_prediction
     
     
     
