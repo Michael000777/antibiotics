@@ -156,6 +156,9 @@ class PlateReaderData(object):
         if 0 <= dataid < len(self.__data):
             if outfilename is None:
                 outfilename = self.__sheetnames[dataid].replace(' ','_') + '.png'
+            else:
+                if outfilename[-4:].upper() != '.PNG':
+                    outfilename += '.png'
                 
             cFull           = self.rgb(self.figureparameters['colors'][0])
             cEmpty          = self.rgb(self.figureparameters['colors'][1])
