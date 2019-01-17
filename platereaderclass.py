@@ -144,7 +144,7 @@ class PlateReaderData(object):
     
     
     def extract_figure_file_parameters(self,kwargs):
-        self.figureparameters = {   'colors':   ['3465a4','ffffff','2e3436','eeeeec'],
+        self.figureparameters = {   'colors':   ['3465a4','ffffff','2e3436','eeeeec','cc0000'],
                                     'wellradius': 20,
                                     'wellsize':50,
                                     'linewidth':3}
@@ -152,18 +152,19 @@ class PlateReaderData(object):
 
 
 
-    def write_PNG(self,dataid,outfilename = None):
+    def write_PNG(self,dataid,outfilename = None, growththreshold = None):
         if 0 <= dataid < len(self.__data):
             if outfilename is None:
-                outfilename = self.__sheetnames[dataid] + '.png'
+                outfilename = self.__sheetnames[dataid].replace(' ','_') + '.png'
                 
-            cFull   = self.rgb(self.figureparameters['colors'][0])
-            cEmpty  = self.rgb(self.figureparameters['colors'][1])
-            cBorder = self.rgb(self.figureparameters['colors'][2])
-            cBack   = self.rgb(self.figureparameters['colors'][3])
+            cFull           = self.rgb(self.figureparameters['colors'][0])
+            cEmpty          = self.rgb(self.figureparameters['colors'][1])
+            cBorder         = self.rgb(self.figureparameters['colors'][2])
+            cBack           = self.rgb(self.figureparameters['colors'][3])
+            cBorderNoGrowth = self.rgb(self.figureparameters['colors'][4])
 
-            CairoImage = cairo.ImageSurface(cairo.FORMAT_ARGB32,self.__data[dataid].shape[1] * self.figureparameters['wellsize'],self.__data[dataid].shape[0] * self.figureparameters['wellsize'])
-            context    = cairo.Context(CairoImage)
+            CairoImage      = cairo.ImageSurface(cairo.FORMAT_ARGB32,self.__data[dataid].shape[1] * self.figureparameters['wellsize'],self.__data[dataid].shape[0] * self.figureparameters['wellsize'])
+            context         = cairo.Context(CairoImage)
 
             context.rectangle(0,0,self.__data[dataid].shape[1] * self.figureparameters['wellsize'],self.__data[dataid].shape[0] * self.figureparameters['wellsize'])
             context.set_source_rgb(cBack[0],cBack[1],cBack[2])
@@ -174,6 +175,10 @@ class PlateReaderData(object):
             context.translate(.5 * self.figureparameters['wellsize'],.5 * self.figureparameters['wellsize'])
             datamax   = np.amax(self.__data[dataid])
             datarange = np.amax(self.__data[dataid]) - np.amin(self.__data[dataid])
+            if not growththreshold is None:
+                threshold = (datamax - growththreshold)/datarange
+            else:
+                threshold = -1
             for x in range(int(self.__data[dataid].shape[1])):
                 for y in range(int(self.__data[dataid].shape[0])):
                     context.new_path()
@@ -182,7 +187,10 @@ class PlateReaderData(object):
                     c = cFull * (1 - r) + cEmpty * r
                     context.set_source_rgb(c[0],c[1],c[2])
                     context.fill_preserve()
-                    context.set_source_rgb(cBorder[0],cBorder[1],cBorder[2])
+                    if r < threshold:
+                        context.set_source_rgb(cBorderNoGrowth[0],cBorderNoGrowth[1],cBorderNoGrowth[2])
+                    else:
+                        context.set_source_rgb(cBorder[0],cBorder[1],cBorder[2])
                     context.stroke_preserve()
                     context.translate(0,self.figureparameters['wellsize'])
                 context.translate(self.figureparameters['wellsize'],-self.__data[dataid].shape[0] * self.figureparameters['wellsize'])
@@ -238,7 +246,7 @@ class PlateReaderData(object):
 
     def interpolate_log_log(self,x1,x2,y1,y2,ythreshold):
         #print "{:.6e} {:.6e} {:.6e} {:.6e} {:.6e}".format(x1,x2,y1,y2,ythreshold)
-        if x1 > x2 and x2 > x1:
+        if x1 != x2:
             return x1 * np.exp( np.log(ythreshold/y1) * np.log(x2/x1) / np.log(y2/y1) )
         else:
             return x1
@@ -297,6 +305,7 @@ class PlateReaderData(object):
 
     
     def get_noise_estimates(self,dataID):
+        # get rough estimate of noise as variance between neighboring wells on plate
         shape = np.shape(self.__data[dataID])
         ne = np.zeros(shape)
 
@@ -323,7 +332,7 @@ class PlateReaderData(object):
         return ne
 
 
-    def EstimateThreshold(self,dataID = None,historange = None, bins = None, logscale = True):
+    def EstimateGrowthThreshold(self,dataID = None,historange = None, bins = None, logscale = True):
         # otsu's method
         # described in IEEE TRANSACTIONS ON SYSTEMS, MAN, AND CYBERNETICS (1979)
         # usually used to binarize photos into black/white, here we separate the growth/no-growth transition
@@ -348,29 +357,40 @@ class PlateReaderData(object):
 
         if historange is None:
             if bins is None:
-                count,b = np.histogram(x)
+                count,binedges = np.histogram(x)
             else:
-                count,b = np.histogram(x,bins=bins)
+                count,binedges = np.histogram(x,bins=bins)
         else:
             if bins is None:
-                count,b = np.histogram(x,range=historange)
+                count,binedges = np.histogram(x,range=historange)
             else:
-                count,b = np.histogram(x,range=historange,bins=bins)
-        bmean   = b[:-1] + .5 * np.diff(b)
+                count,binedges = np.histogram(x,range=historange,bins=bins)
+        bincenter = binedges[:-1] + .5 * np.diff(binedges)
         
         p   = count/float(sum(count))
         w   = np.array([np.sum(p[:k]) for k in range(args.bins)])
-        m   = np.array([np.dot(p[:k],bmean[:k]) for k in range(args.bins)])
-        mT  = np.dot(p,bmean)
+        m   = np.array([np.dot(p[:k],bincenter[:k]) for k in range(args.bins)])
+        mT  = np.dot(p,bincenter)
         
         sB  = np.array([(mT * w[k] - m[k])**2/(w[k]*(1.-w[k])) if w[k]*(1.-w[k]) > 0 else 0 for k in range(args.bins)])
         idx = np.argmax(sB)
         
         if logscale:
-            return np.exp(bmean[idx])
+            return np.exp(bincenter[idx])
         else:
-            return bmean[idx]
+            return bincenter[idx]
         
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
     
 
     def __iter__(self):
