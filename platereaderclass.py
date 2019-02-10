@@ -5,8 +5,8 @@ import pandas as pd
 import argparse
 import sys,math
 import itertools
-import openpyxl
 import cairo
+import svgwrite
 import sklearn.gaussian_process as sklgp
 
 from skimage import measure
@@ -35,6 +35,9 @@ class PlateReaderData(object):
         self.__logscale = kwargs.get("DataLogscale",False)
         self.__logmin  = kwargs.get("DataLogscaleMin",-20)
         
+        
+        # default positions in Excel-file for data and plate design
+        # note: indices start at 1 to account for the normal numbering in Excel!
         self.__read_coordinates = { 'x0':      kwargs.get("xstart",  2),
                                     'y0':      kwargs.get("ystart",  2),
                                     'xwidth':  kwargs.get("xwidth", 12),
@@ -113,7 +116,7 @@ class PlateReaderData(object):
             raise ValueError
     
     
-    def read_sheet(self,excelfile, sheetname, x0 = None, y0 = None, xwidth = None, yheight = None):
+    def read_sheet(self, excelfile, sheetname, x0 = None, y0 = None, xwidth = None, yheight = None):
         if x0 is None:       x0      = self.__read_coordinates['x0']
         if y0 is None:       y0      = self.__read_coordinates['y0']
         if xwidth is None:   xwidth  = self.__read_coordinates['xwidth']
