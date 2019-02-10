@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import numpy as np
+import pandas as pd
 import argparse
 import sys,math
 import itertools
@@ -34,10 +35,20 @@ class PlateReaderData(object):
         self.__logscale = kwargs.get("DataLogscale",False)
         self.__logmin  = kwargs.get("DataLogscaleMin",-20)
         
-        self.__read_coordinates = { 'x0':kwargs.get("xstart",2),
-                                    'y0':kwargs.get("ystart",2),
-                                    'xwidth':kwargs.get("xwidth",12),
-                                    'yheight':kwargs.get("yheight",8) }
+        self.__read_coordinates = { 'x0':      kwargs.get("xstart",  2),
+                                    'y0':      kwargs.get("ystart",  2),
+                                    'xwidth':  kwargs.get("xwidth", 12),
+                                    'yheight': kwargs.get("yheight", 8) }
+        
+        self.__read_coordinates_design0 = { 'x0':      kwargs.get("d0_xstart",  4),
+                                            'y0':      kwargs.get("d0_ystart", 14),
+                                            'xwidth':  kwargs.get("d0_xwidth", 12),
+                                            'yheight': kwargs.get("d0_yheight", 8) }
+        
+        self.__read_coordinates_design1 = { 'x0':      kwargs.get("d1_xstart",  4),
+                                            'y0':      kwargs.get("d1_ystart",  3),
+                                            'xwidth':  kwargs.get("d1_xwidth", 12),
+                                            'yheight': kwargs.get("d1_yheight", 8) }
         
         self.__ignoresheets = ['Plate Design*']
         if len(self.__ignoresheetsparameter) > 0:
@@ -47,17 +58,20 @@ class PlateReaderData(object):
         if len(self.__infilenames) > 0:
             for fn in self.__infilenames:
                 try:
-                    data = openpyxl.load_workbook(fn)
+                    tmpExcelFile = pd.ExcelFile(fn)
                 except:
                     continue
                 
-                for designsheet in [s for s in data if self.ignoresheet(s.title)]:
-                    self.__designdata.append(self.read_initial_conditions(data,designsheet.title))
-                    self.__designtitle.append(designsheet.title)
+                for designsheet in [s for s in tmpExcelFile.sheet_names if self.ignoresheet(s)]:
+                    tmpDesignData0 = self.read_sheet(tmpExcelFile,designsheet,**self.__read_coordinates_design0)
+                    tmpDesignData1 = self.read_sheet(tmpExcelFile,designsheet,**self.__read_coordinates_design1)
+                    self.__designdata.append((tmpDesignData0,tmpDesignData1))
+                    self.__designtitle.append(designsheet)
                 i = 0
-                for sheet in [s for s in data if not self.ignoresheet(s.title)]:
-                    self.__data.append(self.read_sheet(sheet))
-                    self.__sheetnames.append(sheet.title)
+                for sheet in [s for s in tmpExcelFile.sheet_names if not self.ignoresheet(s)]:
+                    tmpSheetData = self.read_sheet(tmpExcelFile, sheet, **self.__read_coordinates)
+                    self.__data.append(tmpSheetData)
+                    self.__sheetnames.append(sheet)
                     self.__filenames.append(fn)
                     try:
                         design = kwargs.get("designassignment",[])[i]
@@ -99,21 +113,16 @@ class PlateReaderData(object):
             raise ValueError
     
     
-    def read_sheet(self,sheet,x0 = None, y0 = None, width = None, height = None):
-        if x0 is None:      x0 = self.__read_coordinates['x0']
-        if y0 is None:      y0 = self.__read_coordinates['y0']
-        if width is None:   width = self.__read_coordinates['xwidth']
-        if height is None:  height = self.__read_coordinates['yheight']
+    def read_sheet(self,excelfile, sheetname, x0 = None, y0 = None, xwidth = None, yheight = None):
+        if x0 is None:       x0      = self.__read_coordinates['x0']
+        if y0 is None:       y0      = self.__read_coordinates['y0']
+        if xwidth is None:   xwidth  = self.__read_coordinates['xwidth']
+        if yheight is None:  yheight = self.__read_coordinates['yheight']
         
-        return np.array([[sheet['{:s}{:d}'.format(self.column_string(i),j)].value for i in range(x0,x0+width)] for j in range(y0,y0+height)],dtype=np.float)
-
-
-    def read_initial_conditions(self,data,sheetname,xab = 4, yab = 14, xcells = 4, ycells = 3, width = 12, height = 8):
-        if sheetname in data.sheetnames:
-            return self.read_sheet(data[sheetname],x0 = xab,y0 = yab),self.read_sheet(data[sheetname],x0 = xcells,y0 = ycells)
+        if sheetname in excelfile.sheet_names:
+            return np.array(excelfile.parse(sheetname, usecols = '{}:{}'.format(self.column_string(x0),self.column_string(x0 + xwidth - 1)), header = None)[y0-1 : y0 + yheight-1],dtype = np.float)
         else:
             raise KeyError
-    
 
     def ignoresheet(self,sheetname):
         r = False
