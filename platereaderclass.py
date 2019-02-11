@@ -101,18 +101,18 @@ class PlateReaderData(object):
         return string
     
     
-    def rgb(self,color):
-        r = int(color[0:2],16)
-        g = int(color[2:4],16)
-        b = int(color[4:6],16)
-        return np.array([r/255.,g/255.,b/255.])
-
-
-    def rgb_xml(self,color):
-        r = int(color[0:2],16)
-        g = int(color[2:4],16)
-        b = int(color[4:6],16)
-        return 'rgb({:d},{:d},{:d})'.format(r,g,b)
+    def rgb(self,color, outformat = 'list'):
+        if isinstance(color, str):
+            r = int(color[0:2],16)
+            g = int(color[2:4],16)
+            b = int(color[4:6],16)
+        else:
+            raise NotImplementedError
+        
+        if outformat == 'list':
+            return np.array([r/255.,g/255.,b/255.])
+        elif outformat = 'xml':
+            return 'rgb({:d},{:d},{:d})'.format(r,g,b)
 
 
     def avg(self,values,geom = True):
@@ -180,18 +180,21 @@ class PlateReaderData(object):
         if kwargs.has_key('FigureColorBorder'):         self.figureparameters['colors'][3]  = kwargs['FigureColorBorder']
         if kwargs.has_key('FigureColorBorderNoGrowth'): self.figureparameters['colors'][4]  = kwargs['FigureColorBorderNoGrowth']
 
-    def interpolate_color_xml(self,datavalue, color1, color2):
+    def interpolate_color_xml(self, rdatavalue, color1, color2):
         # dummy
+        
+        return 
+        
         return '000000'
 
 
     def write_SVG(self,dataID, outfilename = None, growththreshold = None):
         if 0 <= dataid < len(self.__data):
             if outfilename is None:
-                outfilename = self.__sheetnames[dataid].replace(' ','_') + '.png'
+                outfilename = self.__sheetnames[dataid].replace(' ','_') + '.svg'
             else:
-                if outfilename[-4:].upper() != '.PNG':
-                    outfilename += '.png'
+                if outfilename[-4:].upper() != '.SVG':
+                    outfilename += '.svg'
 
             rdata = self.rescale(self.__data[dataID], logscale = self.__logscale)
             rthreshold = -1
@@ -217,7 +220,7 @@ class PlateReaderData(object):
                     
                     fillcolor = self.interpolate_color_xml(rdata[x,y],self.figureparameters['FigureColorFull'], self.figureparameters['FigureColorEmpty'])
                     
-                    img.add(img.circle( ( (x + .5) * figureparameters['wellsize'], (y + .5) * figureparameters['wellsize'] ), figureparameters['wellradius'], stroke_width = figureparameters['linewidth'], fill = self.rgb_xml(fillcolor), stroke_color = self.rgb_xml(bordercolor))
+                    img.add(img.circle( ( (x + .5) * figureparameters['wellsize'], (y + .5) * figureparameters['wellsize'] ), figureparameters['wellradius'], stroke_width = figureparameters['linewidth'], fill = self.rgb(fillcolor, outformat = 'xml'), stroke_color = self.rgb(bordercolor, outformat = 'xml'))
             
             
             img.save()
