@@ -13,6 +13,7 @@ def main():
     parser_io.add_argument("-D","--designassignment", default = None, nargs = "*")
     parser_io.add_argument("-o","--outfileprefix",    default = "", type = str)
     parser_io.add_argument("-P","--WritePNG",         default = False, action = "store_true")
+    parser_io.add_argument("-S","--WriteSVG",         default = False, action = "store_true")
     parser_io.add_argument("-E","--ErrorEstimates",   default = False, action = "store_true")
     parser_io.add_argument("-v","--verbose",          default = False, action = "store_true")
     
@@ -22,10 +23,11 @@ def main():
     parser_Figure.add_argument("-r","--FigureWellRadius",          default = 18, type = int)
     parser_Figure.add_argument("-L","--FigureLinewidth",           default =  3, type = int)
     parser_Figure.add_argument("-c","--FigureColorEmpty",          default = "d3d7cf")
-    parser_Figure.add_argument("-C","--FigureColorFull",           default = "cc0000")
+    parser_Figure.add_argument("-C","--FigureColorFull",           default = "3465a4")
     parser_Figure.add_argument("-B","--FigureColorBackground",     default = None)
     parser_Figure.add_argument("-b","--FigureColorBorder",         default = "2e3436")
     parser_Figure.add_argument("-N","--FigureColorBorderNoGrowth", default = "a40000")
+    parser_Figure.add_argument("-T","--FigureEstimateThreshold",   default = False, action = "store_true")
     
     args = parser.parse_args()
 
@@ -33,15 +35,23 @@ def main():
 
     for dataID in range(int(data)):
         title = data.titles[dataID]
-        if args.verbose:print title
+        if args.verbose: print title
         if len(args.outfileprefix) > 0: fn = (args.outfileprefix + '_' + title).replace(' ','_')
         else:                           fn = title.replace(' ','_')
         fn += '.data'
         
         data.write_data_to_file(dataID = dataID,filename = fn,include_error_estimates = args.ErrorEstimates)
-        if args.WritePNG:
+
+        threshold = None
+        if args.FigureEstimateThreshold:
             threshold = data.EstimateGrowthThreshold(dataID,historange=(-7,1),bins = 20)
-            data.write_PNG(dataID,growththreshold = threshold)
+        
+        if args.WritePNG:
+            prc.PlateImage(data[dataID], outfilename = data.titles[dataID], growththreshold = threshold, outputformat = 'png', **vars(args))
+            
+        if args.WriteSVG:
+            prc.PlateImage(data[dataID], outfilename = data.titles[dataID], growththreshold = threshold, outputformat = 'svg', **vars(args))
+            
             
 if __name__ == "__main__":
     main()
