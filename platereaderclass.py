@@ -645,3 +645,60 @@ class PlateImage(object):
                 context.translate(self.figureparameters['wellsize'],-self.__data.shape[0] * self.figureparameters['wellsize'])
             
             CairoImage.write_to_png(self.__outfilename)
+
+
+
+
+
+
+
+
+
+
+
+class GnuplotMSPOutput(object):
+    def __init__(self,**kwargs):
+        self.__outfilename = kwargs.get('outfilename','out.gnuplot')
+        self.__columns = kwargs.get('GnuplotColumns',3)
+        self.__datasize = kwargs.get('datasize')
+        self.fp = open(self.__outfilename,'w')
+        
+    def __del__(self):
+        self.fp.close()
+    
+    def write_init(self):
+        self.fp.write("set terminal pngcairo enhanced size 1920,1080\n")
+        self.fp.write("set output \"{:s}.png\"\n".format(self.__outfilename))
+        self.fp.write("set multiplot\n")
+        self.fp.write("set border 15 lw 2 lc rgb \"#2e3436\"\n")
+        self.fp.write("set tics front\n")
+        self.fp.write("set xra [1e-3:1e2]\n")
+        self.fp.write("set yra [1e2:1e8]\n")
+        self.fp.write("set logscale\n")
+        ysize = 1./self.__columns
+        if self.__datasize % self.__columns == 0:
+            xsize = 1./(self.__datasize//self.__columns)
+        else:
+            xsize = 1.(self.__datasize//self.__columns + 1.)
+        self.fp.write("xsize = {:e}\n".format(xsize))
+        self.fp.write("ysize = {:e}\n".format(ysize))
+        self.fp.write("xoffset = 0\n")
+        self.fp.write("yoffset = 0\n")
+        self.fp.write("set size {:e},{:e}\n".format(xsize,ysize))
+        self.fp.write("n0(abconc,taulambda,ssmic) = 1 + log(abconc / ssmic) / taulambda\n")
+        self.fp.write("set label 1 \"empty\" at graph .5,.05 center front\n")
+        self.fp.write("unset key\n")
+        self.fp.write("set samples 1001\n")
+        self.fp.write("\n")
+        
+    def write_plot(self,ID,label,basename,tau1,smic1,tau2,smic2,tau3,tau4,smic3):
+        self.fp.write("set origin xoffset + {:d} * xsize, yoffset + {:d} * ysize\n" . format(ID//self.__columns,ID % self.__columns))
+        self.fp.write("set label 1 \"{:s}\"\n".format(label.replace('_','-')))
+        self.fp.write("plot \\\n")
+        self.fp.write("  n0(x,{:e},{:e}) w l lw 4 lc rgb \"#4e9a06\",\\\n".format(tau3,smic3))
+        self.fp.write("  n0(x,{:e},{:e}) w l lw 4 lc rgb \"#8ae234\",\\\n".format(tau4,smic3))
+        self.fp.write("  n0(x,{:e},{:e}) w l lw 4 lc rgb \"#a40000\",\\\n".format(tau1,smic1))
+        self.fp.write("  n0(x,{:e},{:e}) w l lw 4 lc rgb \"#ef2929\",\\\n".format(tau2,smic2))
+        self.fp.write("  \"{:s}\" u 1:2 w p pt 7 ps 2 lc rgb \"#3465a4\"\n".format(basename + '.threshold'))
+        self.fp.write("\n")
+        

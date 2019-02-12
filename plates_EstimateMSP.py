@@ -155,33 +155,9 @@ def main():
 
 
     if not args.GnuplotOutput is None:
-        fGP = open(args.GnuplotOutput, 'w')
-        fGP.write("set terminal pngcairo enhanced size 1920,1080\n")
-        fGP.write("set output \"{:s}.png\"\n".format(args.GnuplotOutput))
-        fGP.write("set multiplot\n")
-        fGP.write("set border 15 lw 2 lc rgb \"#2e3436\"\n")
-        fGP.write("set tics front\n")
-        fGP.write("set xra [1e-3:1e2]\n")
-        fGP.write("set yra [1e2:1e8]\n")
-        fGP.write("set logscale\n")
-        ysize = 1./args.GnuplotColumns
-        if len(data) % args.GnuplotColumns == 0:
-            xsize = 1./(len(data)//args.GnuplotColumns)
-        else:
-            xsize = 1.(len(data)//args.GnuplotColumns + 1.)
-        fGP.write("xsize = {:e}\n".format(xsize))
-        fGP.write("ysize = {:e}\n".format(ysize))
-        fGP.write("xoffset = 0\n")
-        fGP.write("yoffset = 0\n")
-        fGP.write("set size {:e},{:e}\n".format(xsize,ysize))
-        fGP.write("n0(abconc,taulambda,ssmic) = 1 + log(abconc / ssmic) / taulambda\n")
-        fGP.write("set label 1 \"empty\" at graph .5,.05 center front\n")
-        fGP.write("unset key\n")
-        fGP.write("set samples 1001\n")
-        fGP.write("\n")
-
-    
-    
+        gnuplotoutput = prc.GnuplotMSPOutput(datasize = len(data), outfilename = args.GnuplotOutput, **vars(args))
+        gnuplotoutput.write_init()
+   
     if data.count_design == 0:
         data.generate_design(xstart = args.GenerateDesign[0],xdilution = args.GenerateDesign[1], ystart = args.GenerateDesign[2], ydilution = args.GenerateDesign[3])
     
@@ -213,27 +189,17 @@ def main():
             np.savetxt(basename + '.threshold',transitions)
         
         if not args.GnuplotOutput is None:
-            fGP.write("set origin xoffset + {:d} * xsize, yoffset + {:d} * ysize\n" . format(i//args.GnuplotColumns,i % args.GnuplotColumns))
-            fGP.write("set label 1 \"{:s}\"\n".format(basename.replace('_','-')))
-            fGP.write("plot \\\n")
-            fGP.write("  n0(x,{:e},{:e}) w l lw 4 lc rgb \"#4e9a06\",\\\n".format(tau3,smic3))
-            fGP.write("  n0(x,{:e},{:e}) w l lw 4 lc rgb \"#8ae234\",\\\n".format(tau4,smic3))
-            fGP.write("  n0(x,{:e},{:e}) w l lw 4 lc rgb \"#a40000\",\\\n".format(tau1[0],smic1[0]))
-            fGP.write("  n0(x,{:e},{:e}) w l lw 4 lc rgb \"#ef2929\",\\\n".format(tau2[0],smic2[0]))
-            fGP.write("  \"{:s}\" u 1:2 w p pt 7 ps 2 lc rgb \"#3465a4\"\n".format(basename + '.threshold'))
-            fGP.write("\n")
-        i += 1
-    
+            gnuplotoutput.write_plot(i,basename,basename,tau1[0],smic1[0],tau2[0],smic2[0],tau3,tau4,smic3)
+
         if args.Images:
             prc.PlateImage(data[i],data.titles[i])
     
         if args.DataFiles:
             outfilename = basename + '.data'
             data.write_data_to_file(i,outfilename)
-    
-    if not args.GnuplotOutput is None:
-        fGP.close()
 
+        i += 1
+    
 if __name__ == "__main__":
     main()
 
