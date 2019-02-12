@@ -180,12 +180,11 @@ class PlateReaderData(object):
         if kwargs.has_key('FigureColorBorder'):         self.figureparameters['colors'][3]  = kwargs['FigureColorBorder']
         if kwargs.has_key('FigureColorBorderNoGrowth'): self.figureparameters['colors'][4]  = kwargs['FigureColorBorderNoGrowth']
 
-    def interpolate_color_xml(self, rdatavalue, color1, color2):
-        # dummy
-        
-        return 
-        
-        return '000000'
+    def interpolate_color_xml(self, rdatavalue, color1, color2, outformat = 'list'):
+        if outformat == 'list':
+            return rdatavalue * self.rgb(color1) + (1-rdatavalue) * self.rgb(color2)
+        elif outformat == 'xml':
+            return 'str({:d},{:d},{:d})'.format(**(255 * rdatavalue * self.rgb(color1) + (1-rdatavalue) * self.rgb(color2)))
 
 
     def write_SVG(self,dataID, outfilename = None, growththreshold = None):
