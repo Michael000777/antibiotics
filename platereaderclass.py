@@ -5,12 +5,13 @@ import pandas as pd
 import argparse
 import sys,math
 import itertools
-import cairo
-import svgwrite
 import sklearn.gaussian_process as sklgp
 
 from skimage import measure
 
+## loaded upon chosing output format below
+#import cairo
+#import svgwrite
 
 
 class PlateReaderData(object):
@@ -91,6 +92,7 @@ class PlateReaderData(object):
         
     
     def column_string(self,n):
+        # needed to convert column numbers to Excel naming scheme of columns ('A' ... 'Z', 'AA', 'AB', ..., 'AZ', 'BA', ...)
         div=n
         string=""
         temp=0
@@ -99,29 +101,7 @@ class PlateReaderData(object):
             string=chr(65+module)+string
             div=int((div-module)/26)
         return string
-    
-    
-    def rgb(self,color, outformat = 'list'):
-        if isinstance(color, str):
-            r = int(color[0:2],16)
-            g = int(color[2:4],16)
-            b = int(color[4:6],16)
-        else:
-            raise NotImplementedError
-        
-        if outformat == 'list':
-            return np.array([r/255.,g/255.,b/255.])
-        elif outformat = 'xml':
-            return 'rgb({:d},{:d},{:d})'.format(r,g,b)
 
-
-    def avg(self,values,geom = True):
-        if len(values) > 0:
-            if geom:    return np.power(np.product(values),1./len(values))
-            else:       return np.mean(values)
-        else:
-            raise ValueError
-    
     
     def read_sheet(self, excelfile, sheetname, x0 = None, y0 = None, xwidth = None, yheight = None):
         if x0 is None:       x0      = self.__read_coordinates['x0']
@@ -133,6 +113,7 @@ class PlateReaderData(object):
             return np.array(excelfile.parse(sheetname, usecols = '{}:{}'.format(self.column_string(x0),self.column_string(x0 + xwidth - 1)), header = None)[y0-1 : y0 + yheight-1],dtype = np.float)
         else:
             raise KeyError
+
 
     def ignoresheet(self,sheetname):
         r = False
@@ -148,160 +129,6 @@ class PlateReaderData(object):
                 if sheetname.upper() == ignore.upper():
                     r = True
         return r
-    
-    
-    def rescale(self,g):
-        if self.__rescale:
-            if self.__logscale:
-                r = np.log(g)
-                r[r<self.__logmin] = self.__logmin
-            else:
-                r = g[:,:]
-                
-            r = (r - np.min(r))/(np.max(r) - np.min(r))
-            return r
-        else:
-            return g
-    
-    
-    def extract_figure_file_parameters(self,kwargs):
-        # default values
-        self.figureparameters = {   'colors':   ['3465a4','ffffff','2e3436','eeeeec','a40000'],
-                                    'wellradius': 20,
-                                    'wellsize':50,
-                                    'linewidth':3}
-        # update default values if part of the argument dictionary
-        if kwargs.has_key('FigureWellDistance'):        self.figureparameters['wellsize']   = kwargs['FigureWellDistance']
-        if kwargs.has_key('FigureWellRadius'):          self.figureparameters['wellradius'] = kwargs['FigureWellRadius']
-        if kwargs.has_key('FigureLinewidth'):           self.figureparameters['linewidth']  = kwargs['FigureLinewidth']
-        if kwargs.has_key('FigureColorFull'):           self.figureparameters['colors'][0]  = kwargs['FigureColorFull']
-        if kwargs.has_key('FigureColorEmpty'):          self.figureparameters['colors'][1]  = kwargs['FigureColorEmpty']
-        if kwargs.has_key('FigureColorBackground'):     self.figureparameters['colors'][2]  = kwargs['FigureColorBackground']
-        if kwargs.has_key('FigureColorBorder'):         self.figureparameters['colors'][3]  = kwargs['FigureColorBorder']
-        if kwargs.has_key('FigureColorBorderNoGrowth'): self.figureparameters['colors'][4]  = kwargs['FigureColorBorderNoGrowth']
-
-    def interpolate_color_xml(self, rdatavalue, color1, color2, outformat = 'list'):
-        if outformat == 'list':
-            return rdatavalue * self.rgb(color1) + (1-rdatavalue) * self.rgb(color2)
-        elif outformat == 'xml':
-            return 'str({:d},{:d},{:d})'.format(**(255 * rdatavalue * self.rgb(color1) + (1-rdatavalue) * self.rgb(color2)))
-
-
-    def write_SVG(self,dataID, outfilename = None, growththreshold = None):
-        if 0 <= dataid < len(self.__data):
-            if outfilename is None:
-                outfilename = self.__sheetnames[dataid].replace(' ','_') + '.svg'
-            else:
-                if outfilename[-4:].upper() != '.SVG':
-                    outfilename += '.svg'
-
-            rdata = self.rescale(self.__data[dataID], logscale = self.__logscale)
-            rthreshold = -1
-            if self.__logscale:
-                datamax   = np.log(np.amax(self.__data[dataid]))
-                datarange = np.log(np.amax(self.__data[dataid])) - np.log(np.amin(self.__data[dataid]))
-                if not growththreshold is None:
-                    rthreshold = (datamax - np.log(growththreshold))/datarange
-            else:
-                datamax   = np.log(np.amax(self.__data[dataid]))
-                datarange = np.log(np.amax(self.__data[dataid])) - np.log(np.amin(self.__data[dataid]))
-                if not growththreshold is None:
-                    rthreshold = (datamax - growththreshold)/datarange
-
-            
-            img = svgwrite.Drawing(outfilename, size = (figureparameters['wellsize'] * data.shape[0],figureparameters['wellsize'] * data.shape[1]))
-            for x in range(data.shape[0]):
-                for y in range(data.shape[1]):
-                    if rdata[x,y] > rthreshold:
-                        bordercolor = self.figureparameters['FigureColorBorderNoGrowth']
-                    else:
-                        bordercolor = self.figureparameters['FigureColorBorder']
-                    
-                    fillcolor = self.interpolate_color_xml(rdata[x,y],self.figureparameters['FigureColorFull'], self.figureparameters['FigureColorEmpty'])
-                    
-                    img.add(img.circle( ( (x + .5) * figureparameters['wellsize'], (y + .5) * figureparameters['wellsize'] ), figureparameters['wellradius'], stroke_width = figureparameters['linewidth'], fill = self.rgb(fillcolor, outformat = 'xml'), stroke_color = self.rgb(bordercolor, outformat = 'xml'))
-            
-            
-            img.save()
-
-            
-
-
-    def write_PNG(self,dataid,outfilename = None, growththreshold = None):
-        if 0 <= dataid < len(self.__data):
-            if outfilename is None:
-                outfilename = self.__sheetnames[dataid].replace(' ','_') + '.png'
-            else:
-                if outfilename[-4:].upper() != '.PNG':
-                    outfilename += '.png'
-                
-            cFull           = self.rgb(self.figureparameters['colors'][0])
-            cEmpty          = self.rgb(self.figureparameters['colors'][1])
-            cBorder         = self.rgb(self.figureparameters['colors'][2])
-            cBack           = self.rgb(self.figureparameters['colors'][3])
-            cBorderNoGrowth = self.rgb(self.figureparameters['colors'][4])
-
-            CairoImage      = cairo.ImageSurface(cairo.FORMAT_ARGB32,self.__data[dataid].shape[1] * self.figureparameters['wellsize'],self.__data[dataid].shape[0] * self.figureparameters['wellsize'])
-            context         = cairo.Context(CairoImage)
-
-            context.rectangle(0,0,self.__data[dataid].shape[1] * self.figureparameters['wellsize'],self.__data[dataid].shape[0] * self.figureparameters['wellsize'])
-            context.set_source_rgb(cBack[0],cBack[1],cBack[2])
-            context.fill_preserve()
-            context.new_path()
-
-            context.set_line_width(self.figureparameters['linewidth'])
-            context.translate(.5 * self.figureparameters['wellsize'],.5 * self.figureparameters['wellsize'])
-            datamax   = np.amax(self.__data[dataid])
-            datarange = np.amax(self.__data[dataid]) - np.amin(self.__data[dataid])
-            if not growththreshold is None:
-                threshold = (datamax - growththreshold)/datarange
-            else:
-                threshold = -1
-            for x in range(int(self.__data[dataid].shape[1])):
-                for y in range(int(self.__data[dataid].shape[0])):
-                    context.new_path()
-                    context.arc(0,0,self.figureparameters['wellradius'],0,2*math.pi)
-                    r = (datamax - self.__data[dataid][y,x])/datarange
-                    c = cFull * (1 - r) + cEmpty * r
-                    context.set_source_rgb(c[0],c[1],c[2])
-                    context.fill_preserve()
-                    if r > threshold:
-                        context.set_source_rgb(cBorderNoGrowth[0],cBorderNoGrowth[1],cBorderNoGrowth[2])
-                    else:
-                        context.set_source_rgb(cBorder[0],cBorder[1],cBorder[2])
-                    context.stroke_preserve()
-                    context.translate(0,self.figureparameters['wellsize'])
-                context.translate(self.figureparameters['wellsize'],-self.__data[dataid].shape[0] * self.figureparameters['wellsize'])
-            
-            CairoImage.write_to_png(outfilename)
-
-    def Export_All_PNGs(self):
-        for i in range(self.count):
-            self.write_PNG(i)
-
-    def get_design(self,designid = 0, designname = None, dataID = None):
-        if not designname is None:
-            if designname in self.__designtitle:
-                return self.__designdata[self.__designtitle.index(designname)]
-        elif not dataID is None:
-            return self.__designdata[self.__designassignment[dataID]]
-        else:
-            return self.__designdata[designid]
-    
-    
-    def get_designassignment(self,dataid = None):
-        if dataid is None:
-            return self.__designassignment
-        else:
-            if 0 <= dataid < len(self.__designassignment):
-                return self.__designassignment[dataid]
-            else:
-                raise KeyError
-    
-    
-    def count_design(self):
-        assert len(self.__designdata) == len(self.__designtitle)
-        return len(self.__designdata)
 
 
     def add_design(self,xstart=6e6,xdilution = 4.,ystart=6.25,ydilution = 2,xdirection = 1,ydirection = -1,xsize = 8, ysize = 12, designtitle = 'generated'):
@@ -317,53 +144,44 @@ class PlateReaderData(object):
         self.__designdata.append((design_x,design_y))
         self.__designtitle.append(designtitle)
 
-    def all_values(self):
-        return np.concatenate([x.flatten() for x in self.__data])
+
+
+
+    def avg(self,values,geom = True):
+        if len(values) > 0:
+            if geom:    return np.power(np.product(values),1./len(values))
+            else:       return np.mean(values)
+        else:
+            raise ValueError
     
+    
+    def rescale(self,g):
+        if self.__rescale:
+            if self.__logscale:
+                r = np.log(g)
+                r[r<self.__logmin] = self.__logmin
+            else:
+                r = g[:,:]
+                
+            r = (r - np.min(r))/(np.max(r) - np.min(r))
+            return r
+        else:
+            return g
 
-
+    
     def interpolate_log_log(self,x1,x2,y1,y2,ythreshold):
         if x1 != x2:
             return x1 * np.exp( np.log(ythreshold/y1) * np.log(x2/x1) / np.log(y2/y1) )
         else:
             return x1
 
-
-    def compute_growth_nogrowth_transition(self,dataID,threshold, geom = True):
-        r = list()
-        platesize = np.shape(self.__data[dataID])
-        allcont = measure.find_contours(self.__data[dataID],threshold)
-        for cont in allcont:
-            for pos in cont:
-                    # logarithmic interpolation
-                    i, j  = int(pos[0]//1), int(pos[1]//1)
-                    di,dj = pos[0] - i, pos[1] - j
-
-                    x = self.__designdata[self.__designassignment[dataID]][0][i,j]
-                    if j + 1 < platesize[1] and dj > 0:
-                        x *= np.power(self.__designdata[self.__designassignment[dataID]][0][i,j+1]/self.__designdata[self.__designassignment[dataID]][0][i,j],dj)
-                    
-                    y = self.__designdata[self.__designassignment[dataID]][1][i,j]
-                    if i + 1 < platesize[0] and di > 0:
-                        y *= np.power(self.__designdata[self.__designassignment[dataID]][1][i+1,j]/self.__designdata[self.__designassignment[dataID]][1][i,j],di)
-                        
-                    r.append(np.array([x,y]))
-
-        if len(r) > 0:
-            return np.vstack(r)
-        else:
-            return None
-
-
-    def transitions(self,threshold,useGPR = False):
-        if useGPR:
-            threshold = self.EstimateGrowthThreshold(dataID = None,historange = (-7,1),bins = 30)
-            return [(self.__filenames[i],self.__sheetnames[i],self.compute_growth_nogrowth_transition_GPR(i,threshold)) for i in range(len(self.__data))]
-        else:
-            return [(self.__filenames[i],self.__sheetnames[i],self.compute_growth_nogrowth_transition(i,threshold)) for i in range(len(self.__data))]
     
-    
-    
+
+    def Export_All_PNGs(self):
+        for i in range(self.count):
+            self.write_PNG(i)
+
+
     def write_data_to_file(self,dataID,filename = 'out',include_error_estimates = False):
         xlist = self.__designdata[self.__designassignment[dataID]][0]
         ylist = self.__designdata[self.__designassignment[dataID]][1]
@@ -411,6 +229,58 @@ class PlateReaderData(object):
                 ne[i,j]           = np.std(self.__data[dataID][i-1:i+1,j-1:j+1])
         
         return ne
+
+
+
+    def get_design(self,designid = 0, designname = None, dataID = None):
+        # get the design, depending if either 'designid', 'designname' or 'dataID' is specified
+        if not designname is None:
+            if designname in self.__designtitle:
+                return self.__designdata[self.__designtitle.index(designname)]
+        elif not dataID is None:
+            return self.__designdata[self.__designassignment[dataID]]
+        else:
+            return self.__designdata[designid]
+    
+
+
+
+
+    def compute_growth_nogrowth_transition(self,dataID,threshold, geom = True):
+        r = list()
+        platesize = np.shape(self.__data[dataID])
+        allcont = measure.find_contours(self.__data[dataID],threshold)
+        for cont in allcont:
+            for pos in cont:
+                    # logarithmic interpolation
+                    i, j  = int(pos[0]//1), int(pos[1]//1)
+                    di,dj = pos[0] - i, pos[1] - j
+
+                    x = self.__designdata[self.__designassignment[dataID]][0][i,j]
+                    if j + 1 < platesize[1] and dj > 0:
+                        x *= np.power(self.__designdata[self.__designassignment[dataID]][0][i,j+1]/self.__designdata[self.__designassignment[dataID]][0][i,j],dj)
+                    
+                    y = self.__designdata[self.__designassignment[dataID]][1][i,j]
+                    if i + 1 < platesize[0] and di > 0:
+                        y *= np.power(self.__designdata[self.__designassignment[dataID]][1][i+1,j]/self.__designdata[self.__designassignment[dataID]][1][i,j],di)
+                        
+                    r.append(np.array([x,y]))
+
+        if len(r) > 0:
+            return np.vstack(r)
+        else:
+            return None
+
+
+    def transitions(self,threshold,useGPR = False):
+        if useGPR:
+            threshold = self.EstimateGrowthThreshold(dataID = None,historange = (-7,1),bins = 30)
+            return [(self.__filenames[i],self.__sheetnames[i],self.compute_growth_nogrowth_transition_GPR(i,threshold)) for i in range(len(self.__data))]
+        else:
+            return [(self.__filenames[i],self.__sheetnames[i],self.compute_growth_nogrowth_transition(i,threshold)) for i in range(len(self.__data))]
+    
+    
+    
 
 
     def EstimateGrowthThreshold(self,dataID = None,historange = None, bins = None, logscale = True):
@@ -567,8 +437,11 @@ class PlateReaderData(object):
     def __int__(self):
         return len(self.__data)
 
+
     def __len__(self):
         return len(self.__data)
+    
+
     
     def __getattr__(self,key):
         if key == "count":
@@ -579,8 +452,180 @@ class PlateReaderData(object):
             return self.__sheetnames
         elif key == "filenames":
             return self.__filenames
+        elif key == "all_values":
+            return np.concatenate([x.flatten() for x in self.__data])
+        elif key == "designassignment":
+            return self.__designassignment
         else:
             super(PlateReaderData,self).__getitem__(key)
     
+    
     def __getitem__(self,key):
         return self.__data[key]
+
+
+
+
+
+class PlateImage(object):
+    def __init__(self, data, outfilename = None,**kwargs):
+        
+        self.__data            = data
+        self.__outputformat    = kwargs.get('outputformat','svg')
+        self.__logscale        = kwargs.get('logscale',False)
+        self.__growththreshold = kwargs.get('growththreshold')
+        
+        self.extract_figure_file_parameters(kwargs)
+
+        if outfilename is None:
+            self.__outfilename = 'out.' + self.__outputformat.lower()
+        else:
+            self.__outfilename = outfilename
+            if self.__outfilename[:-4].upper() != '.' + self.__outputformat.upper():
+                self.__outfilename += '.' + self.__outputformat
+        
+        if self.__outputformat == 'SVG':
+            if not 'svgwrite' in sys.modules: import svgwrite
+            self.write_SVG()
+        elif self.__outputformat == 'PNG':
+            if not 'cairo' in sys.modules: import cairo
+            self.write_PNG()
+            
+
+
+    def rescale(self,g):
+        if self.__rescale:
+            if self.__logscale:
+                r = np.log(g)
+                r[r<self.__logmin] = self.__logmin
+            else:
+                r = g[:,:]
+                
+            r = (r - np.min(r))/(np.max(r) - np.min(r))
+            return r
+        else:
+            return g
+
+
+    def extract_figure_file_parameters(self,kwargs):
+        # default values
+        self.figureparameters = {   'colors':   ['3465a4','ffffff','2e3436','eeeeec','a40000'],
+                                    'wellradius': 20,
+                                    'wellsize':50,
+                                    'linewidth':3}
+        # update default values if part of the argument dictionary
+        if kwargs.has_key('FigureWellDistance'):        self.figureparameters['wellsize']   = kwargs['FigureWellDistance']
+        if kwargs.has_key('FigureWellRadius'):          self.figureparameters['wellradius'] = kwargs['FigureWellRadius']
+        if kwargs.has_key('FigureLinewidth'):           self.figureparameters['linewidth']  = kwargs['FigureLinewidth']
+        if kwargs.has_key('FigureColorFull'):           self.figureparameters['colors'][0]  = kwargs['FigureColorFull']
+        if kwargs.has_key('FigureColorEmpty'):          self.figureparameters['colors'][1]  = kwargs['FigureColorEmpty']
+        if kwargs.has_key('FigureColorBackground'):     self.figureparameters['colors'][2]  = kwargs['FigureColorBackground']
+        if kwargs.has_key('FigureColorBorder'):         self.figureparameters['colors'][3]  = kwargs['FigureColorBorder']
+        if kwargs.has_key('FigureColorBorderNoGrowth'): self.figureparameters['colors'][4]  = kwargs['FigureColorBorderNoGrowth']
+
+
+        
+    def rgb(self,color, outformat = 'list'):
+        if isinstance(color, str):
+            r = int(color[0:2],16)
+            g = int(color[2:4],16)
+            b = int(color[4:6],16)
+        else:
+            raise NotImplementedError
+        
+        if outformat == 'list':
+            return np.array([r/255.,g/255.,b/255.])
+        elif outformat = 'xml':
+            return 'rgb({:d},{:d},{:d})'.format(r,g,b)
+
+
+    def interpolate_color_xml(self, rdatavalue, color1, color2, outformat = 'list'):
+        if outformat == 'list':
+            return rdatavalue * self.rgb(color1) + (1-rdatavalue) * self.rgb(color2)
+        elif outformat == 'xml':
+            return 'str({:d},{:d},{:d})'.format(**(255 * rdatavalue * self.rgb(color1) + (1-rdatavalue) * self.rgb(color2)))
+
+
+    def write_SVG(self):
+
+        rdata = self.rescale(self.__data, logscale = self.__logscale)
+        rthreshold = -1
+        if self.__logscale:
+            datamax   = np.log(np.amax(self.__data[dataid]))
+            datarange = np.log(np.amax(self.__data[dataid])) - np.log(np.amin(self.__data[dataid]))
+            if not self.__growththreshold is None:
+                rthreshold = (datamax - np.log(growththreshold))/datarange
+        else:
+            datamax   = np.log(np.amax(self.__data[dataid]))
+            datarange = np.log(np.amax(self.__data[dataid])) - np.log(np.amin(self.__data[dataid]))
+            if not self.__growththreshold is None:
+                rthreshold = (datamax - growththreshold)/datarange
+
+        
+        img = svgwrite.Drawing(outfilename, size = (figureparameters['wellsize'] * data.shape[0],figureparameters['wellsize'] * data.shape[1]))
+        for x in range(data.shape[0]):
+            for y in range(data.shape[1]):
+                if rdata[x,y] > rthreshold:
+                    bordercolor = self.figureparameters['FigureColorBorderNoGrowth']
+                else:
+                    bordercolor = self.figureparameters['FigureColorBorder']
+                
+                fillcolor = self.interpolate_color_xml(rdata[x,y],self.figureparameters['FigureColorFull'], self.figureparameters['FigureColorEmpty'])
+                
+                img.add(img.circle( ( (x + .5) * figureparameters['wellsize'], (y + .5) * figureparameters['wellsize'] ), figureparameters['wellradius'], stroke_width = figureparameters['linewidth'], fill = self.rgb(fillcolor, outformat = 'xml'), stroke_color = self.rgb(bordercolor, outformat = 'xml'))
+        
+        
+        img.save()
+
+
+
+            
+
+
+    def write_PNG(self,dataid,outfilename = None, growththreshold = None):
+        if 0 <= dataid < len(self.__data):
+            if outfilename is None:
+                outfilename = self.__sheetnames[dataid].replace(' ','_') + '.png'
+            else:
+                if outfilename[-4:].upper() != '.PNG':
+                    outfilename += '.png'
+                
+            cFull           = self.rgb(self.figureparameters['colors'][0])
+            cEmpty          = self.rgb(self.figureparameters['colors'][1])
+            cBorder         = self.rgb(self.figureparameters['colors'][2])
+            cBack           = self.rgb(self.figureparameters['colors'][3])
+            cBorderNoGrowth = self.rgb(self.figureparameters['colors'][4])
+
+            CairoImage      = cairo.ImageSurface(cairo.FORMAT_ARGB32,self.__data[dataid].shape[1] * self.figureparameters['wellsize'],self.__data[dataid].shape[0] * self.figureparameters['wellsize'])
+            context         = cairo.Context(CairoImage)
+
+            context.rectangle(0,0,self.__data[dataid].shape[1] * self.figureparameters['wellsize'],self.__data[dataid].shape[0] * self.figureparameters['wellsize'])
+            context.set_source_rgb(cBack[0],cBack[1],cBack[2])
+            context.fill_preserve()
+            context.new_path()
+
+            context.set_line_width(self.figureparameters['linewidth'])
+            context.translate(.5 * self.figureparameters['wellsize'],.5 * self.figureparameters['wellsize'])
+            datamax   = np.amax(self.__data[dataid])
+            datarange = np.amax(self.__data[dataid]) - np.amin(self.__data[dataid])
+            if not growththreshold is None:
+                threshold = (datamax - growththreshold)/datarange
+            else:
+                threshold = -1
+            for x in range(int(self.__data[dataid].shape[1])):
+                for y in range(int(self.__data[dataid].shape[0])):
+                    context.new_path()
+                    context.arc(0,0,self.figureparameters['wellradius'],0,2*math.pi)
+                    r = (datamax - self.__data[dataid][y,x])/datarange
+                    c = cFull * (1 - r) + cEmpty * r
+                    context.set_source_rgb(c[0],c[1],c[2])
+                    context.fill_preserve()
+                    if r > threshold:
+                        context.set_source_rgb(cBorderNoGrowth[0],cBorderNoGrowth[1],cBorderNoGrowth[2])
+                    else:
+                        context.set_source_rgb(cBorder[0],cBorder[1],cBorder[2])
+                    context.stroke_preserve()
+                    context.translate(0,self.figureparameters['wellsize'])
+                context.translate(self.figureparameters['wellsize'],-self.__data[dataid].shape[0] * self.figureparameters['wellsize'])
+            
+            CairoImage.write_to_png(outfilename)
