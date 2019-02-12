@@ -129,20 +129,16 @@ def main():
     
     parser_io = parser.add_argument_group(description = "==== I/O parameters ====")
     parser_io.add_argument("-i", "--infiles",              nargs = "*")
+    parser_io.add_argument("-X", "--BasenameExtension",    default = "",    type=str)
     parser_io.add_argument("-P", "--Images",               default = False, action = "store_true")
     parser_io.add_argument("-T", "--ThresholdFiles",       default = False, action = "store_true")
     parser_io.add_argument("-F", "--DataFiles",            default = False, action = "store_true")
-    parser_io.add_argument("-G", "--GnuplotOutput",        default = False, action = "store_true")
+    parser_io.add_argument("-G", "--GnuplotOutput",        default = None,  type = str)
     parser_io.add_argument("-g", "--GnuplotColumns",       default = 3,     type = int)
-    parser_io.add_argument("-p", "--GnuplotImageFileName", default = "inoculumeffect", type = str)
-    parser_io.add_argument("-H", "--HistogramOD",          default = False, action = "store_true")
-    parser_io.add_argument("-b", "--HistogramBins",        default = 20,    type = int)
-    parser_io.add_argument("-B", "--HistogramLogscale",    default = False, action = "store_true")
-    parser_io.add_argument("-X", "--BasenameExtension",    default = "",    type=str)
     parser_io.add_argument("-d", "--GenerateDesign",       default = [6e6,4,6.25,2], nargs = 4, type = int)
     
     parser_alg = parser.add_argument_group(description = "==== Algorithm parameters ====")
-    parser_alg.add_argument("-t", "--growthThreshold",  default = 0.2,   type = float)
+    parser_alg.add_argument("-t", "--growthThreshold",  default = None,  type = float)
     parser_alg.add_argument("-D", "--designassignment", default = [],    type = int, nargs = "*")
     parser_alg.add_argument("-L", "--AB_lambda",        default = 1,     type = float)
     parser_alg.add_argument("-l", "--AB_lambdaStdDev" , default = 0,     type = float)
@@ -156,89 +152,87 @@ def main():
     # load all data via the 'PlateReaderData' class
     data = prc.PlateReaderData(**vars(args))
     
-    if args.Images:
-        data.Export_All_PNGs()
-    
-    if args.GnuplotOutput:
-        sys.stderr.write("set terminal pngcairo enhanced size 1920,1080\n")
-        sys.stderr.write("set output \"{:s}.png\"\n".format(args.GnuplotImageFileName))
-        sys.stderr.write("set multiplot\n")
-        sys.stderr.write("set border 15 lw 2 lc rgb \"#2e3436\"\n")
-        sys.stderr.write("set tics front\n")
-        sys.stderr.write("set xra [1e-3:1e2]\n")
-        sys.stderr.write("set yra [1e2:1e8]\n")
-        sys.stderr.write("set logscale\n")
+
+
+    if not args.GnuplotOutput is None:
+        fGP = open(args.GnuplotOutput, 'w')
+        fGP.write("set terminal pngcairo enhanced size 1920,1080\n")
+        fGP.write("set output \"{:s}.png\"\n".format(args.GnuplotOutput))
+        fGP.write("set multiplot\n")
+        fGP.write("set border 15 lw 2 lc rgb \"#2e3436\"\n")
+        fGP.write("set tics front\n")
+        fGP.write("set xra [1e-3:1e2]\n")
+        fGP.write("set yra [1e2:1e8]\n")
+        fGP.write("set logscale\n")
         ysize = 1./args.GnuplotColumns
         if len(data) % args.GnuplotColumns == 0:
             xsize = 1./(len(data)//args.GnuplotColumns)
         else:
             xsize = 1.(len(data)//args.GnuplotColumns + 1.)
-        sys.stderr.write("xsize = {:e}\n".format(xsize))
-        sys.stderr.write("ysize = {:e}\n".format(ysize))
-        sys.stderr.write("xoffset = 0\n")
-        sys.stderr.write("yoffset = 0\n")
-        sys.stderr.write("set size {:e},{:e}\n".format(xsize,ysize))
-        sys.stderr.write("n0(abconc,taulambda,ssmic) = 1 + log(abconc / ssmic) / taulambda\n")
-        sys.stderr.write("set label 1 \"empty\" at graph .5,.05 center front\n")
-        sys.stderr.write("unset key\n")
-        sys.stderr.write("set samples 1001\n")
-        sys.stderr.write("\n")
+        fGP.write("xsize = {:e}\n".format(xsize))
+        fGP.write("ysize = {:e}\n".format(ysize))
+        fGP.write("xoffset = 0\n")
+        fGP.write("yoffset = 0\n")
+        fGP.write("set size {:e},{:e}\n".format(xsize,ysize))
+        fGP.write("n0(abconc,taulambda,ssmic) = 1 + log(abconc / ssmic) / taulambda\n")
+        fGP.write("set label 1 \"empty\" at graph .5,.05 center front\n")
+        fGP.write("unset key\n")
+        fGP.write("set samples 1001\n")
+        fGP.write("\n")
 
     
     
-    if data.count_design() == 0:
+    if data.count_design == 0:
         data.generate_design(xstart = args.GenerateDesign[0],xdilution = args.GenerateDesign[1], ystart = args.GenerateDesign[2], ydilution = args.GenerateDesign[3])
     
-    i = 0
-    lastfn = ""
-    for fn,title,transitions in data.transitions(threshold = args.growthThreshold, useGPR = args.GaussianProcessRegression):
+    lastfn    = ""
+    threshold = data.EstimateGrowthThreshold(dataID = None) # None indicates *ALL* data
+
+    for i in range(len(data)):
+        if args.GaussianProcessRegression:  transitions = data.compute_growth_nogrowth_transition_GPR(i,threshold)
+        else:                               transitions = data.compute_growth_nogrowth_transition(i,threshold)
+            
+        title    = data.titles[i]
+        fn       = data.filenames[i]
         basename = (args.BasenameExtension + title).replace(' ','_')
         if fn != lastfn:
             print("# data from '{:s}'".format(fn))
             print("{:40s} {:>14s} {:>14s} {:>14s} {:>14s} {:>14s} {:>14s} {:>14s} {:>14s} {:>14s} {:>14s} {:>14s} {:>14s} {:>14s} {:>14s} {:>14s}".format('#','tau lfB','taudev lfB', 'ssmic lfB', 'ssmicdev lfB', 'R2 lfB','tau lfN','taudev lfN', 'ssmic lfN', 'ssmicdev lfN', 'R2 lfN', 'tau Nmin', 'R2 Nmin', 'tau Bmin', 'R2 Bmin', 'ssmic 1'))
         lastfn = fn
         
+        
         tau1,smic1,Rsq1 = estimate_Tau_sMIC_linearFit_AsFuncOfB(transitions,Rsquared = True)
         tau2,smic2,Rsq2 = estimate_Tau_sMIC_linearFit_AsFuncOfN(transitions,Rsquared = True)
         tau3,Rsq3,tau4,Rsq4,smic3 = estimate_Tau_sMIC_singleParameter(transitions,Rsquared = True)
         
+        # main output
         print("{:40s} {:14.6e} {:14.6e} {:14.6e} {:14.6e} {:14.6e} {:14.6e} {:14.6e} {:14.6e} {:14.6e} {:14.6e} {:14.6e} {:14.6e} {:14.6e} {:14.6e} {:14.6e}".format(basename,tau1[0],tau1[1],smic1[0],smic1[1],Rsq1,tau2[0],tau2[1],smic2[0],smic2[1],Rsq2,tau3,Rsq3,tau4,Rsq4,smic3))
         
-        if args.ThresholdFiles or args.GnuplotOutput:
-            np.savetxt(basename + '.threshold{:f}'.format(args.growthThreshold),transitions)
         
-        if args.GnuplotOutput:
-            sys.stderr.write("set origin xoffset + {:d} * xsize, yoffset + {:d} * ysize\n" . format(i//args.GnuplotColumns,i % args.GnuplotColumns))
-            sys.stderr.write("set label 1 \"{:s}\"\n".format(basename.replace('_','-')))
-            sys.stderr.write("plot \\\n")
-            sys.stderr.write("  n0(x,{:e},{:e}) w l lw 4 lc rgb \"#4e9a06\",\\\n".format(tau3,smic3))
-            sys.stderr.write("  n0(x,{:e},{:e}) w l lw 4 lc rgb \"#8ae234\",\\\n".format(tau4,smic3))
-            sys.stderr.write("  n0(x,{:e},{:e}) w l lw 4 lc rgb \"#a40000\",\\\n".format(tau1[0],smic1[0]))
-            sys.stderr.write("  n0(x,{:e},{:e}) w l lw 4 lc rgb \"#ef2929\",\\\n".format(tau2[0],smic2[0]))
-            sys.stderr.write("  \"{:s}\" u 1:2 w p pt 7 ps 2 lc rgb \"#3465a4\"\n".format(basename + '.threshold{:f}'.format(args.growthThreshold)))
-            sys.stderr.write("\n")
+        if args.ThresholdFiles or not args.GnuplotOutput is None:
+            np.savetxt(basename + '.threshold',transitions)
+        
+        if not args.GnuplotOutput is None:
+            fGP.write("set origin xoffset + {:d} * xsize, yoffset + {:d} * ysize\n" . format(i//args.GnuplotColumns,i % args.GnuplotColumns))
+            fGP.write("set label 1 \"{:s}\"\n".format(basename.replace('_','-')))
+            fGP.write("plot \\\n")
+            fGP.write("  n0(x,{:e},{:e}) w l lw 4 lc rgb \"#4e9a06\",\\\n".format(tau3,smic3))
+            fGP.write("  n0(x,{:e},{:e}) w l lw 4 lc rgb \"#8ae234\",\\\n".format(tau4,smic3))
+            fGP.write("  n0(x,{:e},{:e}) w l lw 4 lc rgb \"#a40000\",\\\n".format(tau1[0],smic1[0]))
+            fGP.write("  n0(x,{:e},{:e}) w l lw 4 lc rgb \"#ef2929\",\\\n".format(tau2[0],smic2[0]))
+            fGP.write("  \"{:s}\" u 1:2 w p pt 7 ps 2 lc rgb \"#3465a4\"\n".format(basename + '.threshold'))
+            fGP.write("\n")
         i += 1
     
-    if args.DataFiles:
-        for dataID,plate in enumerate(data):
-            fn,title,platedata = plate
-            design = data.get_design(dataID = dataID)
-            basename = (args.BasenameExtension + title + '.data').replace(' ','_')
-            fp = open(basename,'w')
-            for i in range(np.shape(platedata)[0]):
-                for j in range(np.shape(platedata)[1]):
-                    fp.write("{} {} {}\n".format(design[0][i,j],design[1][i,j],platedata[i,j]))
-                fp.write("\n")
-            fp.close()
+        if args.Images:
+            prc.PlateImage(data[i],data.titles[i])
     
-    if args.HistogramOD:
-        if args.HistogramLogscale:
-            h,b = np.histogram(np.log(data.all_values()), bins = args.HistogramBins)
-            b = np.exp(b[:-1] + np.diff(b))
-        else:
-            h,b = np.histogram(data.all_values(), range = (0,1), bins = args.HistogramBins)
-            b = b[:-1] + np.diff(b)
-        np.savetxt('HistogramOD.txt',np.transpose([b,h]))
+        if args.DataFiles:
+            outfilename = basename + '.data'
+            data.write_data_to_file(i,outfilename)
+    
+    if not args.GnuplotOutput is None:
+        fGP.close()
 
 if __name__ == "__main__":
     main()

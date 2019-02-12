@@ -44,7 +44,7 @@ def main():
 
         threshold = None
         if args.FigureEstimateThreshold:
-            threshold = data.EstimateGrowthThreshold(dataID,historange=(-7,1),bins = 20)
+            threshold = data.EstimateGrowthThreshold(dataID = None) # None indicates ALL data
         
         if args.WritePNG:
             prc.PlateImage(data[dataID], outfilename = data.titles[dataID], growththreshold = threshold, outputformat = 'png', **vars(args))

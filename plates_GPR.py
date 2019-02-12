@@ -117,7 +117,7 @@ def main():
         if args.Threshold:
             # use inferred surface to estimate when population is crossing the threshold between growth/no-growth
             
-            threshold = data.EstimateGrowthThreshold(dataID = None,historange = (-7,1),bins = 30)
+            threshold = data.EstimateGrowthThreshold(dataID = None)
             print('  threshold = {}'.format(threshold))
             pdpred    = platedata_prediction.reshape((args.OutputGrid,args.OutputGrid))
             contours  = measure.find_contours(pdpred,threshold)

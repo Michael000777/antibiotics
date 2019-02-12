@@ -255,14 +255,16 @@ class PlateReaderData(object):
 
     def transitions(self,threshold,useGPR = False):
         if useGPR:
-            threshold = self.EstimateGrowthThreshold(dataID = None,historange = (-7,1),bins = 30)
+            threshold = self.EstimateGrowthThreshold(dataID = None)
             return [(self.__filenames[i],self.__sheetnames[i],self.compute_growth_nogrowth_transition_GPR(i,threshold)) for i in range(len(self.__data))]
         else:
             return [(self.__filenames[i],self.__sheetnames[i],self.compute_growth_nogrowth_transition(i,threshold)) for i in range(len(self.__data))]
 
 
-    def compute_growth_nogrowth_transition(self,dataID,threshold, geom = True):
+    def compute_growth_nogrowth_transition(self, dataID, threshold = None, geom = True):
         r = list()
+        if threshold is None:
+            threshold = self.EstimateGrowthThreshold(dataID)
         platesize = np.shape(self.__data[dataID])
         allcont = measure.find_contours(self.__data[dataID],threshold)
         for cont in allcont:
@@ -288,7 +290,7 @@ class PlateReaderData(object):
 
 
 
-    def EstimateGrowthThreshold(self,dataID = None,historange = None, bins = None, logscale = True):
+    def EstimateGrowthThreshold(self, dataID = None, logscale = True):
         # otsu's method
         # described in IEEE TRANSACTIONS ON SYSTEMS, MAN, AND CYBERNETICS (1979)
         # usually used to binarize photos into black/white, here we separate the growth/no-growth transition
@@ -311,32 +313,20 @@ class PlateReaderData(object):
         x = np.array(x)
         if logscale: x = np.log(x)
 
-        if historange is None:
-            if bins is None:
-                count,binedges = np.histogram(x)
-            else:
-                count,binedges = np.histogram(x,bins=bins)
-        else:
-            if bins is None:
-                count,binedges = np.histogram(x,range=historange)
-            else:
-                count,binedges = np.histogram(x,range=historange,bins=bins)
-        bincenter = binedges[:-1] + .5 * np.diff(binedges)
+        sx = np.sort(x)
+        lx = len(x)
+
+        w   = np.arange(lx,dtype=np.float)/lx
+        m   = np.array([np.mean(sx[:k]) * w[k] if k > 0 else 0 for k in range(lx)])
+        mT  = np.mean(sx)
         
-        p   = count/float(sum(count))
-        w   = np.array([np.sum(p[:k]) for k in range(bins)])
-        m   = np.array([np.dot(p[:k],bincenter[:k]) for k in range(bins)])
-        mT  = np.dot(p,bincenter)
-        
-        sB  = np.array([(mT * w[k] - m[k])**2/(w[k]*(1.-w[k])) if w[k]*(1.-w[k]) > 0 else 0 for k in range(bins)])
+        sB  = np.array([(mT * w[k] - m[k])**2/(w[k]*(1.-w[k])) if w[k]*(1.-w[k]) > 0 else 0 for k in range(lx)])
         idx = np.argmax(sB)
         
         if logscale:
-            return np.exp(bincenter[idx])
+            return np.exp(sx[idx])
         else:
-            return bincenter[idx]
-        
-    
+            return sx[idx]
     
     
     def GaussianProcessRegression(self,dataID,kernellist = ['white','matern'], restarts_optimizer = 10, outputgrid = (50,50), AxesLogScale = True):
@@ -567,7 +557,7 @@ class PlateImage(object):
             return 'rgb({:d},{:d},{:d})'.format(r,g,b)
 
 
-    def interpolate_color_xml(self, rdatavalue, color1, color2, outformat = 'list'):
+    def interpolate_color(self, rdatavalue, color1, color2, outformat = 'list'):
         ic = rdatavalue * self.rgb(color1, outformat = 'list') + (1-rdatavalue) * self.rgb(color2, outformat = 'list')
         
         if outformat == 'list':
@@ -600,14 +590,11 @@ class PlateImage(object):
         
         for x in range(rdata.shape[0]):
             for y in range(rdata.shape[1]):
-                if rdata[x,y] < rthreshold:
-                    bordercolor = self.rgb(self.figureparameters['colors'][4], outformat = 'xml')
-                else:
-                    bordercolor = self.rgb(self.figureparameters['colors'][3], outformat = 'xml')
+                if rdata[x,y] < rthreshold: bordercolor = self.rgb(self.figureparameters['colors'][4], outformat = 'xml')
+                else:                       bordercolor = self.rgb(self.figureparameters['colors'][3], outformat = 'xml')
+                fillcolor = self.interpolate_color(rdata[x,y],self.figureparameters['colors'][0], self.figureparameters['colors'][1], outformat = 'xml')
                 
-                fillcolor = self.interpolate_color_xml(rdata[x,y],self.figureparameters['colors'][0], self.figureparameters['colors'][1], outformat = 'xml')
                 img.add(img.circle( ( (y + .5) * self.figureparameters['wellsize'], (x + .5) * self.figureparameters['wellsize'] ), self.figureparameters['wellradius'], stroke_width = self.figureparameters['linewidth'], fill = fillcolor, stroke = bordercolor))
-        
         
         img.save()
 
