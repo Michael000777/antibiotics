@@ -37,10 +37,10 @@ class PlateReaderData(object):
         
         # default positions in Excel-file for data and plate design
         # note: indices start at 1 to account for the normal numbering in Excel!
-        self.__read_coordinates = { 'x0':      kwargs.get("xstart",  2),
-                                    'y0':      kwargs.get("ystart",  2),
-                                    'xwidth':  kwargs.get("xwidth", 12),
-                                    'yheight': kwargs.get("yheight", 8) }
+        self.__read_coordinates         = { 'x0':      kwargs.get("xstart",  2),
+                                            'y0':      kwargs.get("ystart",  2),
+                                            'xwidth':  kwargs.get("xwidth", 12),
+                                            'yheight': kwargs.get("yheight", 8) }
         
         self.__read_coordinates_design0 = { 'x0':      kwargs.get("d0_xstart",  4),
                                             'y0':      kwargs.get("d0_ystart", 14),
@@ -294,6 +294,7 @@ class PlateReaderData(object):
         # otsu's method
         # described in IEEE TRANSACTIONS ON SYSTEMS, MAN, AND CYBERNETICS (1979)
         # usually used to binarize photos into black/white, here we separate the growth/no-growth transition
+        # here modified to have uniform distribution, ie in each bin of the histogram we have one value, but spacing between bins is different
         
         x = list()
         if dataID is None:
@@ -485,12 +486,10 @@ class PlateReaderData(object):
 
 class PlateImage(object):
     def __init__(self, data, outfilename = None,**kwargs):
-        
         self.__data            = data
         self.__outputformat    = kwargs.get('outputformat','svg')
         self.__logscale        = kwargs.get('logscale',False)
         self.__growththreshold = kwargs.get('growththreshold')
-        
         
         self.extract_figure_file_parameters(kwargs)
 
@@ -541,13 +540,22 @@ class PlateImage(object):
 
         
     def rgb(self,color, outformat = 'list'):
-        
         if color is None: return None
-        
         if isinstance(color, str):
             r = int(color[0:2],16)
             g = int(color[2:4],16)
             b = int(color[4:6],16)
+        elif isinstance(color,(list,tuple,np.array)):
+            if isinstance(color[0],(int,np.int)):
+                r = color[0]
+                g = color[1]
+                b = color[2]
+            elif isinstance(color[0],(float,np.float)):
+                r = int(255 * color[0])
+                g = int(255 * color[1])
+                b = int(255 * color[2])
+            else:
+                raise NotImplementedError
         else:
             raise NotImplementedError
         
@@ -567,7 +575,6 @@ class PlateImage(object):
 
 
     def write_SVG(self):
-
         rdata = self.rescale(self.__data, logscale = self.__logscale)
         rthreshold = -1
         if self.__logscale:
@@ -599,52 +606,53 @@ class PlateImage(object):
         img.save()
 
 
-
-            
-
-
     def write_PNG(self):
-                
-            cFull           = self.rgb(self.figureparameters['colors'][0])
-            cEmpty          = self.rgb(self.figureparameters['colors'][1])
-            cBack           = self.rgb(self.figureparameters['colors'][2])
-            cBorder         = self.rgb(self.figureparameters['colors'][3])
-            cBorderNoGrowth = self.rgb(self.figureparameters['colors'][4])
+        cFull           = self.rgb(self.figureparameters['colors'][0])
+        cEmpty          = self.rgb(self.figureparameters['colors'][1])
+        cBack           = self.rgb(self.figureparameters['colors'][2])
+        cBorder         = self.rgb(self.figureparameters['colors'][3])
+        cBorderNoGrowth = self.rgb(self.figureparameters['colors'][4])
 
-            CairoImage      = sys.modules['cairo'].ImageSurface(sys.modules['cairo'].FORMAT_ARGB32,self.__data.shape[1] * self.figureparameters['wellsize'],self.__data.shape[0] * self.figureparameters['wellsize'])
-            context         = sys.modules['cairo'].Context(CairoImage)
-
-            if not cBack is None:
-                context.rectangle(0,0,self.__data.shape[1] * self.figureparameters['wellsize'],self.__data.shape[0] * self.figureparameters['wellsize'])
-                context.set_source_rgb(cBack[0],cBack[1],cBack[2])
-                context.fill_preserve()
-                context.new_path()
-
-            context.set_line_width(self.figureparameters['linewidth'])
-            context.translate(.5 * self.figureparameters['wellsize'],.5 * self.figureparameters['wellsize'])
+        rthreshold = -1
+        if self.__logscale:
+            dmin = np.log(np.min(self.__data))
+            dmax = np.log(np.max(self.__data))
+            if not self.__growththreshold is None:
+                rthreshold = (np.log(self.__growththreshold) - dmin)/(dmax - dmin)
+        else:
             dmin = np.min(self.__data)
             dmax = np.max(self.__data)
             if not self.__growththreshold is None:
-                threshold = (self.__growththreshold - dmin)/(dmax - dmin)
-            else:
-                threshold = -1
-            for x in range(int(self.__data.shape[1])):
-                for y in range(int(self.__data.shape[0])):
-                    context.new_path()
-                    context.arc(0,0,self.figureparameters['wellradius'],0,2*math.pi)
-                    r = (self.__data[y,x] - dmin)/(dmax - dmin)
-                    c = r * cFull + (1 - r) * cEmpty
-                    context.set_source_rgb(c[0],c[1],c[2])
-                    context.fill_preserve()
-                    if r < threshold:
-                        context.set_source_rgb(cBorderNoGrowth[0],cBorderNoGrowth[1],cBorderNoGrowth[2])
-                    else:
-                        context.set_source_rgb(cBorder[0],cBorder[1],cBorder[2])
-                    context.stroke_preserve()
-                    context.translate(0,self.figureparameters['wellsize'])
-                context.translate(self.figureparameters['wellsize'],-self.__data.shape[0] * self.figureparameters['wellsize'])
-            
-            CairoImage.write_to_png(self.__outfilename)
+                rthreshold = (self.__growththreshold - dmin)/(dmax - dmin)
+
+        CairoImage      = sys.modules['cairo'].ImageSurface(sys.modules['cairo'].FORMAT_ARGB32,self.__data.shape[1] * self.figureparameters['wellsize'],self.__data.shape[0] * self.figureparameters['wellsize'])
+        context         = sys.modules['cairo'].Context(CairoImage)
+
+        if not cBack is None:
+            context.rectangle(0,0,self.__data.shape[1] * self.figureparameters['wellsize'],self.__data.shape[0] * self.figureparameters['wellsize'])
+            context.set_source_rgb(cBack[0],cBack[1],cBack[2])
+            context.fill_preserve()
+            context.new_path()
+
+        context.set_line_width(self.figureparameters['linewidth'])
+        context.translate(.5 * self.figureparameters['wellsize'],.5 * self.figureparameters['wellsize'])
+        for x in range(int(self.__data.shape[1])):
+            for y in range(int(self.__data.shape[0])):
+                context.new_path()
+                context.arc(0,0,self.figureparameters['wellradius'],0,2*math.pi)
+                r = (self.__data[y,x] - dmin)/(dmax - dmin)
+                c = r * cFull + (1 - r) * cEmpty
+                context.set_source_rgb(c[0],c[1],c[2])
+                context.fill_preserve()
+                if r < threshold:
+                    context.set_source_rgb(cBorderNoGrowth[0],cBorderNoGrowth[1],cBorderNoGrowth[2])
+                else:
+                    context.set_source_rgb(cBorder[0],cBorder[1],cBorder[2])
+                context.stroke_preserve()
+                context.translate(0,self.figureparameters['wellsize'])
+            context.translate(self.figureparameters['wellsize'],-self.__data.shape[0] * self.figureparameters['wellsize'])
+        
+        CairoImage.write_to_png(self.__outfilename)
 
 
 
