@@ -14,7 +14,7 @@ class TimeIntegratorDynamics(object):
         self.__params = dict(kwargs)
         for key in self.__params:
             if isinstance(self.__params[key],(list,tuple)):
-                self.__params[key] = np.array(self.__params[key])
+                self.__params[key] = np.array(self.__params[key],dtype=np.float)
 
         self.__verbose = kwargs.get('verbose',False)
         
@@ -35,7 +35,7 @@ class TimeIntegratorDynamics(object):
                                 np.zeros(self.__numstrains),
                                 np.zeros(self.__numstrains),
                                 np.zeros(1),
-                                np.array([self.__params.get('AB_initconc')])
+                                np.array([self.__params.get('AB_initconc')],dtype=np.float)
                             ])
         
         self.__headers = np.concatenate([
@@ -48,26 +48,25 @@ class TimeIntegratorDynamics(object):
                                     ['Bout']
                                 ])
         
-        self.__data = pd.DataFrame([self.__init],columns = headers)
+        self.__data = [self.__init]
 
-
-    def RungeKutta4(self, func, xx ,time = 0, step = 1e-3):
+    def RungeKutta4(self, func, xx ,time = 0):
         # 4th order Runge-Kutta integration scheme
-        k1 = step * func(xx,            time)
-        k2 = step * func(xx + 0.5 * k1, time + 0.5 * step)
-        k3 = step * func(xx + 0.5 * k2, time + 0.5 * step)
-        k4 = step * func(xx + k3,       time + step)
+        k1 = self.__params.get('ALG_integratorstep',1e-3) * func(xx,            time)
+        k2 = self.__params.get('ALG_integratorstep',1e-3) * func(xx + 0.5 * k1, time + 0.5 * self.__params.get('ALG_integratorstep',1e-3))
+        k3 = self.__params.get('ALG_integratorstep',1e-3) * func(xx + 0.5 * k2, time + 0.5 * self.__params.get('ALG_integratorstep',1e-3))
+        k4 = self.__params.get('ALG_integratorstep',1e-3) * func(xx + k3,       time +       self.__params.get('ALG_integratorstep',1e-3))
         return xx + (k1 + 2. * k2 + 2. * k3 + k4)/6.
 
 
     def Step(self):
-        x = np.array(self.__data.tail(1)).flatten()
+        x = self.__data[-1]
         for s in range(self.__params.get('ALG_outputstep',20)):
             xnew = self.RungeKutta4(self.dynamics, x)
             x    = xnew[:]
         if self.__verbose:
             print(x)
-        self.__data.append(pd.DataFrame(x))
+        self.__data = np.concatenate([self.__data,[x]], axis = 0)
     
     
     def growthrateEff(self,Bin):
@@ -98,10 +97,12 @@ class TimeIntegratorDynamics(object):
 
     def run(self,steps = 100):
         for s in range(steps):
+            print(s)
             self.Step()
     
     def save_data(self):
-        self.__data.to_csv(self.__params.get('ALG_outfilename','out'), sep=' ', index_label = '#')
+        d = pd.DataFrame(data = self.__data, columns = self.__headers)
+        d.to_csv(self.__params.get('ALG_outfilename','out'), sep=' ', index_label = '#')
 
 
 def main():
