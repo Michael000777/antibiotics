@@ -49,27 +49,7 @@ class TimeIntegratorDynamics(object):
         self.__data = [self.__init]
         self.__time = 0.
 
-    def RungeKutta4(self, func, xx ,time = 0):
-        # 4th order Runge-Kutta integration scheme
-        k1 = self.__params.get('ALG_integratorstep',1e-3) * func(xx,            time)
-        k2 = self.__params.get('ALG_integratorstep',1e-3) * func(xx + 0.5 * k1, time + 0.5 * self.__params.get('ALG_integratorstep',1e-3))
-        k3 = self.__params.get('ALG_integratorstep',1e-3) * func(xx + 0.5 * k2, time + 0.5 * self.__params.get('ALG_integratorstep',1e-3))
-        k4 = self.__params.get('ALG_integratorstep',1e-3) * func(xx + k3,       time +       self.__params.get('ALG_integratorstep',1e-3))
-        return xx + (k1 + 2. * k2 + 2. * k3 + k4)/6.
 
-
-    def Step(self):
-        x = self.__data[-1]
-        for s in range(self.__params.get('ALG_outputstep',20)):
-            xnew = self.RungeKutta4(self.dynamics, x)
-            xnew[np.where(xnew < 0.)[0]]                     = 0.   # concentrations cannot be smaller than 1
-            xnew[np.where(xnew[:self.__numstrains] < 1.)[0]] = 0.   # populations are extinct if less than 1 individual
-            x    = xnew[:]
-        self.__data  = np.concatenate([self.__data,[x]], axis = 0)
-        self.__time += self.__params['ALG_integratorstep'] * self.__params['ALG_outputstep']
-
-
-    
     def growthrateEff(self,Bin,substrate):
         if substrate <= 0:
             return np.zeros(self.__numstrains)
@@ -94,6 +74,26 @@ class TimeIntegratorDynamics(object):
                         [np.sum(self.__params.get('PD_sigma') * N * self.__params.get('PD_volumeseparation') * (Ein - Eout))],
                         [-self.__params.get('AB_epsilon') * Eout/(Eout + self.__params.get('AB_michaelismenten')) - self.__params.get('AB_sigma') * self.__params.get('PD_volumeseparation') *  np.sum(N * (Bout - Bin))]
                     ])
+
+
+    def RungeKutta4(self, func, xx ,time = 0):
+        # 4th order Runge-Kutta integration scheme
+        k1 = self.__params.get('ALG_integratorstep',1e-3) * func(xx,            time)
+        k2 = self.__params.get('ALG_integratorstep',1e-3) * func(xx + 0.5 * k1, time + 0.5 * self.__params.get('ALG_integratorstep',1e-3))
+        k3 = self.__params.get('ALG_integratorstep',1e-3) * func(xx + 0.5 * k2, time + 0.5 * self.__params.get('ALG_integratorstep',1e-3))
+        k4 = self.__params.get('ALG_integratorstep',1e-3) * func(xx + k3,       time +       self.__params.get('ALG_integratorstep',1e-3))
+        return xx + (k1 + 2. * k2 + 2. * k3 + k4)/6.
+
+
+    def Step(self):
+        x = self.__data[-1]
+        for s in range(self.__params.get('ALG_outputstep',20)):
+            xnew = self.RungeKutta4(self.dynamics, x)
+            xnew[np.where(xnew < 0.)[0]]                     = 0.   # concentrations cannot be smaller than 1
+            xnew[np.where(xnew[:self.__numstrains] < 1.)[0]] = 0.   # populations are extinct if less than 1 individual
+            x    = xnew[:]
+        self.__data  = np.concatenate([self.__data,[x]], axis = 0)
+        self.__time += self.__params['ALG_integratorstep'] * self.__params['ALG_outputstep']
 
 
     def run(self,steps = 100):
