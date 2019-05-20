@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 
-
 import numpy as np
 import pandas as pd
 import argparse
@@ -28,24 +27,55 @@ class TimeIntegratorDynamics(object):
         
         self.__numstrains = na
         
+        # initial conditions and description for dynamics
+        # population sizes and substrate
         self.__init = np.concatenate([
                                 np.array(self.__params.get('PD_initsize'),dtype=np.float),
-                                np.array([self.__params.get('PD_initsubstr')],dtype=np.float),
+                                np.array([self.__params.get('PD_initsubstr')],dtype=np.float)
+                                ])
+        self.__headers = np.concatenate([
+                                np.array(['N{:d}'.format(i) for i in range(self.__numstrains)]),
+                                ['S']
+                                ])
+
+        # track internal concentrations?
+        if self.__params['PD_fastinternaldynamics']:
+            self.dynamics = self.dynamics_approximateinternal
+            
+            # store commonly used parameter combinations
+            self.__params['es']   = self.__params['AB_epsilon'] / self.__params['AB_sigma']
+            self.__params['rs']   = self.__params['PD_rho'] / self.__params['PD_sigma']
+            self.__params['i1es'] = 1./(1.+self.__params['es'])
+            
+        else:
+            # needs additional initial conditions and column names
+            self.__init = np.concatenate([
+                                self.__init,
                                 np.zeros(self.__numstrains),
-                                np.zeros(self.__numstrains),
+                                np.zeros(self.__numstrains)
+                                ])
+            self.__headers = np.concatenate([
+                                self.__headers,
+                                np.array(['Ein{:d}'.format(i) for i in range(self.__numstrains)]),
+                                np.array(['Bin{:d}'.format(i) for i in range(self.__numstrains)])
+                                ])
+            
+            
+            self.dynamics = self.dynamics_trackinternal
+            
+            
+        # outside concentrations of enzyme and antibiotiocs
+        self.__init = np.concatenate([
+                                self.__init,
                                 np.zeros(1),
                                 np.array([self.__params.get('AB_initconc')],dtype=np.float)
-                            ])
-        
-        self.__headers = np.concatenate([
-                                    np.array(['N{:d}'.format(i) for i in range(self.__numstrains)]),
-                                    ['S'],
-                                    np.array(['Ein{:d}'.format(i) for i in range(self.__numstrains)]),
-                                    np.array(['Bin{:d}'.format(i) for i in range(self.__numstrains)]),
-                                    ['Eout'],
-                                    ['Bout']
                                 ])
-        
+        self.__headers = np.concatenate([
+                                self.__headers,
+                                ['Eout'],
+                                ['Bout']
+                                ])
+            
         self.__data = [self.__init]
         self.__time = 0.
 
@@ -54,11 +84,28 @@ class TimeIntegratorDynamics(object):
         if substrate <= 0:
             return np.zeros(self.__numstrains)
         else:
-            bink = np.power(Bin,self.__params.get('AB_kappa',2))
-            return self.__params.get('PD_growthrate') * (1. - bink)/(1. + bink/self.__params.get('AB_gamma',2))
+            bink = np.power(Bin,self.__params['AB_kappa'])
+            return self.__params['PD_growthrate'] * (1. - bink)/(1. + bink/self.__params['AB_gamma'])
     
     
-    def dynamics(self, x, time):
+    def dynamics_approximateinternal(self, x, time):
+        N    = x[0:self.__numstrains]
+        S    = x[self.__numstrains]
+        Eout = x[1+self.__numstrains]
+        Bout = x[2+self.__numstrains]
+        
+        Bin  = Bout * (self.__params['rs'] + Eout + self.__params['AB_michaelismenten']) / ((self.__params['rs'] + Eout) * (1 + self.__params['es']) + self.__params['AB_michaelismenten'])
+        
+        return np.concatenate([
+                        np.array(self.growthrateEff(Bin,S) * N),
+                        np.array([-np.sum(self.growthrateEff(np.zeros(self.__numstrains),S)/self.__params.get('PD_yield') * N),
+                            self.__params['PD_volumeseparation'] * np.sum(self.__params['PD_rho'] * N),
+                            -self.__params['AB_epsilon'] * (Eout / (Eout + self.__params['AB_michaelismenten']) + self.__params['i1es'] * self.__params['PD_volumeseparation'] * np.sum(N * (self.__params['rs'] + Eout) / (self.__params['rs'] + Eout + self.__params['i1es'] * self.__params['AB_michaelismenten']))) * Bout ])
+                        ])
+                        
+                        
+    
+    def dynamics_trackinternal(self, x, time):
         N    = x[0:self.__numstrains]
         S    = x[self.__numstrains]
         Ein  = x[1+self.__numstrains:1+2*self.__numstrains]
@@ -97,10 +144,10 @@ class TimeIntegratorDynamics(object):
 
 
     def run(self,steps = 100):
-        if self.__verbose and self.__time == 0: print(self.lastdata)
+        if self.__verbose and self.__time == 0: print(self.lastdata_str)
         for s in range(steps):
             self.Step()
-            if self.__verbose: print(self.lastdata)
+            if self.__verbose: print(self.lastdata_str)
 
             
     def save_data(self):
@@ -110,8 +157,13 @@ class TimeIntegratorDynamics(object):
 
 
     def __getattr__(self,key):
-        if key == "lastdata":
+        if key == "lastdata_str":
             return '{:7.3f} '.format(self.__time) + ' '.join(['{:14.6e}'.format(v) for v in self.__data[-1]])
+
+
+
+
+
 
 
 
@@ -127,13 +179,14 @@ def main():
     parser_AB.add_argument("-K", "--AB_michaelismenten", default = 1., type = float)
     
     parser_PopDyn = parser.add_argument_group(description = "==== Population dynamics ====")
-    parser_PopDyn.add_argument("-N", "--PD_initsize",         default = [500], type = float, nargs = "*")
-    parser_PopDyn.add_argument("-S", "--PD_initsubstr",       default = 1e6,   type = float, nargs = "*")
-    parser_PopDyn.add_argument("-a", "--PD_growthrate",       default = [1],   type = float, nargs = "*")
-    parser_PopDyn.add_argument("-y", "--PD_yield",            default = [1],   type = float, nargs = "*")
-    parser_PopDyn.add_argument("-r", "--PD_rho",              default = [1],   type = float, nargs = "*")
-    parser_PopDyn.add_argument("-p", "--PD_sigma",            default = [1],   type = float, nargs = "*")
-    parser_PopDyn.add_argument("-V", "--PD_volumeseparation", default = 1e-7,  type = float)
+    parser_PopDyn.add_argument("-N", "--PD_initsize",             default = [500], type = float, nargs = "*")
+    parser_PopDyn.add_argument("-S", "--PD_initsubstr",           default = 1e6,   type = float, nargs = "*")
+    parser_PopDyn.add_argument("-a", "--PD_growthrate",           default = [1],   type = float, nargs = "*")
+    parser_PopDyn.add_argument("-y", "--PD_yield",                default = [1],   type = float, nargs = "*")
+    parser_PopDyn.add_argument("-r", "--PD_rho",                  default = [1],   type = float, nargs = "*")
+    parser_PopDyn.add_argument("-p", "--PD_sigma",                default = [1],   type = float, nargs = "*")
+    parser_PopDyn.add_argument("-V", "--PD_volumeseparation",     default = 1e-7,  type = float)
+    parser_PopDyn.add_argument("-F", "--PD_fastinternaldynamics", default = False, action = "store_true")
     
     parser_alg = parser.add_argument_group(description = "==== Algorithm parameters ====")
     parser_alg.add_argument("-t", "--ALG_integratorstep", default = 1e-3,  type = float)
@@ -146,11 +199,17 @@ def main():
     
     args = parser.parse_args()
     
+    
+    
+    
     abdyn = TimeIntegratorDynamics(**vars(args))
     
     abdyn.run()
     abdyn.save_data()
 
+
+
 if __name__ == "__main__":
     main()
+
 
