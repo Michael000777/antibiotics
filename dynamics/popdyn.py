@@ -143,17 +143,19 @@ class TimeIntegratorDynamics(object):
         self.__time += self.__params['ALG_integratorstep'] * self.__params['ALG_outputstep']
 
 
-    def run(self,steps = 100):
+    def run(self,runtime = None):
         if self.__verbose and self.__time == 0: print(self.lastdata_str)
-        for s in range(steps):
+        starttime = self.__time
+        if runtime is None: runtime = self.__params['ALG_runtime']
+        while self.__time - starttime <= runtime:
             self.Step()
             if self.__verbose: print(self.lastdata_str)
 
             
     def save_data(self):
         t = np.array([np.arange(len(self.__data)) * self.__params.get('ALG_integratorstep',1e-3) * self.__params.get('ALG_outputstep')]).T
-        d = pd.DataFrame(data = np.concatenate([t, self.__data],axis=1), columns = np.concatenate([['time'],self.__headers]))
-        d.to_csv(self.__params.get('ALG_outfilename','out'), sep=' ', index_label = '#', float_format = '%.6e', index = False)
+        d = pd.DataFrame(data = np.concatenate([t, self.__data],axis=1), columns = np.concatenate([['#time'],self.__headers]))
+        d.to_csv(self.__params.get('ALG_outfilename','out'), sep=' ', float_format = '%.6e', index = False)
 
 
     def __getattr__(self,key):
