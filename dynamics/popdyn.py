@@ -193,7 +193,7 @@ def main():
     parser_PopDyn.add_argument("-y", "--PD_yield",                default = [1],   type = float, nargs = "*")
     parser_PopDyn.add_argument("-r", "--PD_rho",                  default = [1],   type = float, nargs = "*")
     parser_PopDyn.add_argument("-p", "--PD_sigma",                default = [1],   type = float, nargs = "*")
-    parser_PopDyn.add_argument("-V", "--PD_volumeseparation",     default = 1e-7,  type = float)
+    parser_PopDyn.add_argument("-V", "--PD_volumeseparation",     default = 1e-10, type = float)
     parser_PopDyn.add_argument("-F", "--PD_fastinternaldynamics", default = False, action = "store_true")
     
     parser_alg = parser.add_argument_group(description = "==== Algorithm parameters ====")
