@@ -27,6 +27,12 @@ class TimeIntegratorDynamics(object):
         
         self.__numstrains = na
         
+        if self.__verbose:
+            print("# ==== cmdline parameters ====")
+            for k,v in self.__params.items():
+                print("# {:<25s} {}".format(k,v))
+
+        
         # initial conditions and description for dynamics
         # population sizes and substrate
         self.__init = np.concatenate([
@@ -155,7 +161,7 @@ class TimeIntegratorDynamics(object):
     def save_data(self):
         t = np.array([np.arange(len(self.__data)) * self.__params.get('ALG_integratorstep',1e-3) * self.__params.get('ALG_outputstep')]).T
         d = pd.DataFrame(data = np.concatenate([t, self.__data],axis=1), columns = np.concatenate([['#time'],self.__headers]))
-        d.to_csv(self.__params.get('ALG_outfilename','out'), sep=' ', float_format = '%.6e', index = False)
+        d.to_csv(self.__params.get('outfilename','out'), sep=' ', float_format = '%.6e', index = False)
 
 
     def __getattr__(self,key):
