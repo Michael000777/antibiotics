@@ -117,7 +117,7 @@ class TimeIntegratorDynamics(object):
                         np.array(self.growthrateEff(Bin,S) * N),
                         [-np.sum(self.growthrateEff(np.zeros(self.__numstrains),S)/self.__params.get('PD_yield') * N)],
                         np.array(self.__params.get('PD_rho') - self.__params.get('PD_sigma') * (Ein - Eout)),
-                        np.array(self.__params.get('AB_epsilon') * Ein/(Ein + self.__params.get('AB_michaelismenten')) * Bin + self.__params.get('AB_sigma') * (Bin - Bout)),
+                        np.array(self.__params.get('AB_epsilon') * Ein/(Ein + self.__params.get('AB_michaelismenten')) * Bin - self.__params.get('AB_sigma') * (Bin - Bout)),
                         [np.sum(self.__params.get('PD_sigma') * N * self.__params.get('PD_volumeseparation') * (Ein - Eout))],
                         [-self.__params.get('AB_epsilon') * Eout/(Eout + self.__params.get('AB_michaelismenten')) - self.__params.get('AB_sigma') * self.__params.get('PD_volumeseparation') *  np.sum(N * (Bout - Bin))]
                     ])
@@ -203,7 +203,7 @@ def main():
     
     
     
-    
+    # initialize object and run dynamics, save data to text file
     abdyn = TimeIntegratorDynamics(**vars(args))
     
     abdyn.run()
