@@ -37,7 +37,7 @@ class TimeIntegratorDynamics(object):
         # population sizes and substrate
         self.__init = np.concatenate([
                                 np.array(self.__params.get('PD_initsize'),dtype=np.float),
-                                np.array([self.__params.get('PD_initsubstr')],dtype=np.float)
+                                np.array(self.__params.get('PD_initsubstr'),dtype=np.float)
                                 ])
         self.__headers = np.concatenate([
                                 np.array(['N{:d}'.format(i) for i in range(self.__numstrains)]),
