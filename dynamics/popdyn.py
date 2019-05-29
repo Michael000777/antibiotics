@@ -44,6 +44,10 @@ class TimeIntegratorDynamics(object):
                                 ['S']
                                 ])
 
+        self.__ABreduction_saturation = True
+        if self.__params['AB_michaelismenten'] is None:
+            self.__ABreduction_saturation = False
+
         # track internal concentrations?
         if self.__params['PD_fastinternaldynamics']:
             self.dynamics = self.dynamics_approximateinternal
@@ -94,6 +98,15 @@ class TimeIntegratorDynamics(object):
             return self.__params['PD_growthrate'] * (1. - bink)/(1. + bink/self.__params['AB_gamma'])
     
     
+    def ABreduction(self,E,B,internal = False):
+        if self.__ABreduction_saturation:
+            if internal:
+                return self.__params['AB_epsilon'] * E / (E + self.__params['AB_michaelismenten']*self.__params['i1es']) * B
+            else:
+                return self.__params['AB_epsilon'] * E / (E + self.__params['AB_michaelismenten']) * B
+        else:
+            return self.__params['AB_epsilon'] * E * B
+    
     def dynamics_approximateinternal(self, x, time):
         N    = x[0:self.__numstrains]
         S    = x[self.__numstrains]
@@ -106,7 +119,7 @@ class TimeIntegratorDynamics(object):
                         np.array(self.growthrateEff(Bin,S) * N),
                         np.array([-np.sum(self.growthrateEff(np.zeros(self.__numstrains),S)/self.__params.get('PD_yield') * N),
                             self.__params['PD_volumeseparation'] * np.sum(self.__params['PD_rho'] * N),
-                            -self.__params['AB_epsilon'] * (Eout / (Eout + self.__params['AB_michaelismenten']) + self.__params['i1es'] * self.__params['PD_volumeseparation'] * np.sum(N * (self.__params['rs'] + Eout) / (self.__params['rs'] + Eout + self.__params['i1es'] * self.__params['AB_michaelismenten']))) * Bout ])
+                            -self.ABreduction(Eout,Bout) + self.__params['i1es'] * self.__params['PD_volumeseparation'] * np.sum(N * self.ABreduction(Eout + self.__params['rs'],Bout, internal = True))])
                         ])
                         
                         
@@ -123,9 +136,9 @@ class TimeIntegratorDynamics(object):
                         np.array(self.growthrateEff(Bin,S) * N),
                         [-np.sum(self.growthrateEff(np.zeros(self.__numstrains),S)/self.__params.get('PD_yield') * N)],
                         np.array(self.__params.get('PD_rho') - self.__params.get('PD_sigma') * (Ein - Eout)),
-                        np.array(self.__params.get('AB_epsilon') * Ein/(Ein + self.__params.get('AB_michaelismenten')) * Bin - self.__params.get('AB_sigma') * (Bin - Bout)),
+                        np.array(self.ABreduction(Ein,Bin) - self.__params.get('AB_sigma') * (Bin - Bout)),
                         [np.sum(self.__params.get('PD_sigma') * N * self.__params.get('PD_volumeseparation') * (Ein - Eout))],
-                        [-self.__params.get('AB_epsilon') * Eout/(Eout + self.__params.get('AB_michaelismenten')) - self.__params.get('AB_sigma') * self.__params.get('PD_volumeseparation') *  np.sum(N * (Bout - Bin))]
+                        [-self.ABreduction(Eout,Bout) - self.__params.get('AB_sigma') * self.__params.get('PD_volumeseparation') *  np.sum(N * (Bout - Bin))]
                     ])
 
 
@@ -179,12 +192,12 @@ def main():
     parser = argparse.ArgumentParser()
     
     parser_AB = parser.add_argument_group(description = "==== AB parameters ====")
-    parser_AB.add_argument("-k", "--AB_kappa",           default = 2., type = float)
-    parser_AB.add_argument("-g", "--AB_gamma",           default = 2., type = float)
-    parser_AB.add_argument("-B", "--AB_initconc",        default = 2., type = float)
-    parser_AB.add_argument("-s", "--AB_sigma",           default = 1., type = float)
-    parser_AB.add_argument("-e", "--AB_epsilon",         default = 1., type = float)
-    parser_AB.add_argument("-K", "--AB_michaelismenten", default = 1., type = float)
+    parser_AB.add_argument("-k", "--AB_kappa",           default = 2.,   type = float)
+    parser_AB.add_argument("-g", "--AB_gamma",           default = 2.,   type = float)
+    parser_AB.add_argument("-B", "--AB_initconc",        default = 2.,   type = float)
+    parser_AB.add_argument("-s", "--AB_sigma",           default = 1.,   type = float)
+    parser_AB.add_argument("-e", "--AB_epsilon",         default = 1.,   type = float)
+    parser_AB.add_argument("-K", "--AB_michaelismenten", default = None, type = float)
     
     parser_PopDyn = parser.add_argument_group(description = "==== Population dynamics ====")
     parser_PopDyn.add_argument("-N", "--PD_initsize",             default = [500], type = float, nargs = "*")
