@@ -90,6 +90,8 @@ class TimeIntegratorDynamics(object):
         self.__time = 0.
 
 
+    # helper routines in dynamics
+    # effective growthrate incorporating death due to antibiotics
     def growthrateEff(self,Bin,substrate):
         if substrate <= 0:
             return np.zeros(self.__numstrains)
@@ -98,6 +100,7 @@ class TimeIntegratorDynamics(object):
             return self.__params['PD_growthrate'] * (1. - bink)/(1. + bink/self.__params['AB_gamma'])
     
     
+    # returns dynamics for either Michalis-Menten (?) dynamics of AB reduction, or simple linear dynamics
     def ABreduction(self,E,B,internal = False):
         if self.__ABreduction_saturation:
             if internal:
@@ -107,6 +110,9 @@ class TimeIntegratorDynamics(object):
         else:
             return self.__params['AB_epsilon'] * E * B
     
+    
+    # assume permeability of membrane is fast enough for internal concentrations to equilibrate
+    # sigmaB, sigmaE >> 1
     def dynamics_approximateinternal(self, x, time):
         N    = x[0:self.__numstrains]
         S    = x[self.__numstrains]
@@ -123,7 +129,7 @@ class TimeIntegratorDynamics(object):
                         ])
                         
                         
-    
+    # all internal concentrations modelled explicitely
     def dynamics_trackinternal(self, x, time):
         N    = x[0:self.__numstrains]
         S    = x[self.__numstrains]
