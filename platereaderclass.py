@@ -687,7 +687,7 @@ class GnuplotMSPOutput(object):
         if self.__datasize % self.__columns == 0:
             xsize = 1./(self.__datasize//self.__columns)
         else:
-            xsize = 1.(self.__datasize//self.__columns + 1.)
+            xsize = 1./(self.__datasize//self.__columns + 1.)
         self.fp.write("xsize = {:e}\n".format(xsize))
         self.fp.write("ysize = {:e}\n".format(ysize))
         self.fp.write("xoffset = 0\n")

@@ -39,15 +39,15 @@ def LMSQ(x,y):
 # ** process data
 # *****************************************************************
 
-def estimate_Tau_sMIC_linearFit_AsFuncOfB(initialconditions,ABlambda = 1,Rsquared = False):
-    # theory predicts: N > 1 + lambda/tau LOG(B/sMIC)
+def estimate_Tau_sMIC_linearFit_AsFuncOfB(initialconditions,Rsquared = False):
+    # theory predicts: N > 1 + tau LOG(B/sMIC)
     Nm1 = initialconditions[:,1] - 1
     lB  = np.log(initialconditions[:,0])
     
     fit,cov = LMSQ(lB,Nm1)
     ret     = uncertainties.correlated_values(fit,cov)
     
-    u_tau   = ABlambda/ret[1]
+    u_tau   = 1./ret[1]
     u_sMIC  = uexp(-ret[0]/ret[1])
     
     tau     = np.array([uncertainties.nominal_value(u_tau), uncertainties.std_dev(u_tau)])
@@ -63,15 +63,15 @@ def estimate_Tau_sMIC_linearFit_AsFuncOfB(initialconditions,ABlambda = 1,Rsquare
         return tau,sMIC,R2
 
 
-def estimate_Tau_sMIC_linearFit_AsFuncOfN(initialconditions,ABlambda = 1,Rsquared = False):
-    # theory predicts: N > 1 + lambda/tau LOG(B/sMIC)
+def estimate_Tau_sMIC_linearFit_AsFuncOfN(initialconditions,Rsquared = False):
+    # theory predicts: N > 1 + tau LOG(B/sMIC)
     Nm1 = initialconditions[:,1] - 1
     lB  = np.log(initialconditions[:,0])
     
     fit,cov = LMSQ(Nm1,lB)
     ret     = uncertainties.correlated_values(fit,cov)
     
-    u_tau   = ret[1]/ABlambda
+    u_tau   = ret[1]
     u_sMIC  = uexp(ret[0])
     
     tau     = np.array([uncertainties.nominal_value(u_tau), uncertainties.std_dev(u_tau)])
@@ -88,7 +88,7 @@ def estimate_Tau_sMIC_linearFit_AsFuncOfN(initialconditions,ABlambda = 1,Rsquare
     
 
 
-def estimate_Tau_sMIC_singleParameter(initialconditions,ABlambda = 1,Rsquared = False):
+def estimate_Tau_sMIC_singleParameter(initialconditions,Rsquared = False):
     
     # ssMIC as geometric mean of all point with smallest initial population size
     mincelldens = np.min(initialconditions[:,1])
@@ -100,16 +100,16 @@ def estimate_Tau_sMIC_singleParameter(initialconditions,ABlambda = 1,Rsquared = 
     lBM = np.log(initialconditions[:,0]/smic)
     
     
-    tau1 = np.sum(lBM/Nm1)/ABlambda
+    tau1 = np.sum(lBM/Nm1)
     if Rsquared:
-        residuals = tau1 - ABlambda * lBM/Nm1
+        residuals = tau1 - lBM/Nm1
         ss_res    = np.sum(residuals**2)
-        ss_tot    = np.sum((ABlambda * lBM/Nm1 - np.mean(ABlambda * lBM/Nm1))**2)
+        ss_tot    = np.sum((lBM/Nm1 - np.mean(lBM/Nm1))**2)
         R2_1      = 1 - ss_res/ss_tot
     
-    tau2 = np.dot(Nm1,lBM)/(np.dot(Nm1,Nm1) * ABlambda)
+    tau2 = np.dot(Nm1,lBM)/(np.dot(Nm1,Nm1))
     if Rsquared:
-        residuals = lBM - tau2/ABlambda * Nm1
+        residuals = lBM - tau2 * Nm1
         ss_res    = np.sum(residuals**2)
         ss_tot    = np.sum((lBM - np.mean(lBM))**2)
         R2_2      = 1 - ss_res/ss_tot
@@ -135,19 +135,14 @@ def main():
     parser_io.add_argument("-F", "--DataFiles",            default = False, action = "store_true")
     parser_io.add_argument("-G", "--GnuplotOutput",        default = None,  type = str)
     parser_io.add_argument("-g", "--GnuplotColumns",       default = 3,     type = int)
-    parser_io.add_argument("-d", "--GenerateDesign",       default = [6e6,4,6.25,2], nargs = 4, type = int)
     
     parser_alg = parser.add_argument_group(description = "==== Algorithm parameters ====")
-    parser_alg.add_argument("-t", "--growthThreshold",  default = None,  type = float)
-    parser_alg.add_argument("-D", "--designassignment", default = [],    type = int, nargs = "*")
-    parser_alg.add_argument("-L", "--AB_lambda",        default = 1,     type = float)
-    parser_alg.add_argument("-l", "--AB_lambdaStdDev" , default = 0,     type = float)
+    parser_alg.add_argument("-t", "--growthThreshold",           default = None,  type = float)
+    parser_alg.add_argument("-D", "--designassignment",          default = [],    type = int, nargs = "*")
+    parser_alg.add_argument("-d", "--GenerateDesign",            default = [6e6,4,6.25,2], nargs = 4, type = int)
     parser_alg.add_argument("-R", "--GaussianProcessRegression", default = False, action = "store_true")
     
     args = parser.parse_args()
-    
-    # use uncertainties package to compute error propagation
-    ABlambda = uncertainties.ufloat(args.AB_lambda,args.AB_lambdaStdDev)
     
     # load all data via the 'PlateReaderData' class
     data = prc.PlateReaderData(**vars(args))
