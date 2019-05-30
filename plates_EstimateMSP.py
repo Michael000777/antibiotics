@@ -4,11 +4,10 @@
 from __future__ import print_function
 
 import numpy as np
+import pandas as pd
 import argparse
 import sys,math
 import uncertainties
-import pandas as pd
-
 from uncertainties.umath import exp as uexp
 
 import platereaderclass as prc
@@ -74,8 +73,8 @@ def estimate_Tau_sMIC_linearFit_AsFuncOfN(initialconditions,Rsquared = False):
     ret                   = dict()
     ret['BN_tau']         = uncertainties.nominal_value(fit_with_errors[1])
     ret['BN_tau_stddev']  = uncertainties.std_dev(fit_with_errors[1])
-    ret['BN_sMIC']        = uncertainties.nominal_value(fit_with_errors[0])
-    ret['BN_sMIC_stddev'] = uncertainties.std_dev(fit_with_errors[0])
+    ret['BN_sMIC']        = uncertainties.nominal_value(uexp(fit_with_errors[0]))
+    ret['BN_sMIC_stddev'] = uncertainties.std_dev(uexp(fit_with_errors[0]))
     
     if Rsquared:
         residuals         = lB - fit[0] - fit[1] * Nm1

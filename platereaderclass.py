@@ -667,9 +667,12 @@ class PlateImage(object):
 class GnuplotMSPOutput(object):
     def __init__(self,**kwargs):
         self.__outfilename = kwargs.get('outfilename','out.gnuplot')
-        self.__columns = kwargs.get('GnuplotColumns',3)
-        self.__datasize = kwargs.get('datasize')
-        self.fp = open(self.__outfilename,'w')
+        self.__columns     = kwargs.get('GnuplotColumns',3)
+        self.__datasize    = kwargs.get('datasize')
+        self.__xrange      = kwargs.get('xrange',[1e-3,1e2])
+        self.__yrange      = kwargs.get('yrange',[1e2,1e8])
+        
+        self.fp            = open(self.__outfilename,'w')
         
     def __del__(self):
         self.fp.close()
@@ -680,9 +683,10 @@ class GnuplotMSPOutput(object):
         self.fp.write("set multiplot\n")
         self.fp.write("set border 15 lw 2 lc rgb \"#2e3436\"\n")
         self.fp.write("set tics front\n")
-        self.fp.write("set xra [1e-3:1e2]\n")
-        self.fp.write("set yra [1e2:1e8]\n")
+        self.fp.write("set xra [{:e}:{:e}]\n".format(*self.__xrange))
+        self.fp.write("set yra [{:e}:{:e}]\n".format(*self.__yrange))
         self.fp.write("set logscale\n")
+        self.fp.write("set format \"10^\{%L\}\"\n")
         ysize = 1./self.__columns
         if self.__datasize % self.__columns == 0:
             xsize = 1./(self.__datasize//self.__columns)
@@ -694,7 +698,7 @@ class GnuplotMSPOutput(object):
         self.fp.write("yoffset = 0\n")
         self.fp.write("set size {:e},{:e}\n".format(xsize,ysize))
         self.fp.write("n0(abconc,taulambda,ssmic) = 1 + log(abconc / ssmic) / taulambda\n")
-        self.fp.write("set label 1 \"empty\" at graph .5,.05 center front\n")
+        self.fp.write("set label 1 \"empty\" at graph .5,.9 center front\n")
         self.fp.write("unset key\n")
         self.fp.write("set samples 1001\n")
         self.fp.write("\n")
