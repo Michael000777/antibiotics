@@ -593,7 +593,7 @@ class PlateImage(object):
         img = sys.modules['svgwrite'].Drawing(self.__outfilename, size = (self.figureparameters['wellsize'] * rdata.shape[1], self.figureparameters['wellsize'] * rdata.shape[0]))
         
         if not self.figureparameters['colors'][2] is None:
-            img.add(img.rect((0,0), (self.figureparameters['wellsize'] * rdata.shape[0],self.figureparameters['wellsize'] * rdata.shape[1]), fill = self.figureparameters['colors'][2]))
+            img.add(img.rect((0,0), (self.figureparameters['wellsize'] * rdata.shape[1], self.figureparameters['wellsize'] * rdata.shape[0]), fill = self.rgb(self.figureparameters['colors'][2], outformat = 'xml')))
         
         for x in range(rdata.shape[0]):
             for y in range(rdata.shape[1]):
