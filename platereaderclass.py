@@ -1,11 +1,10 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import numpy as np
 import pandas as pd
 import argparse
 import sys,math
 import itertools
-import sklearn.gaussian_process as sklgp
 
 from skimage import measure
 
@@ -125,7 +124,7 @@ class PlateReaderData(object):
         if y0 is None:       y0      = self.__read_coordinates['y0']
         if xwidth is None:   xwidth  = self.__read_coordinates['xwidth']
         if yheight is None:  yheight = self.__read_coordinates['yheight']
-        
+
         if sheetname in excelfile.sheet_names:
             return np.array(excelfile.parse(sheetname, usecols = '{}:{}'.format(self.column_string(x0),self.column_string(x0 + xwidth - 1)), header = None)[y0-1 : y0 + yheight-1],dtype = np.float)
         else:
@@ -331,7 +330,10 @@ class PlateReaderData(object):
     
     
     def GaussianProcessRegression(self,dataID,kernellist = ['white','matern'], restarts_optimizer = 10, outputgrid = (50,50), AxesLogScale = True):
+        
+        if not 'sklgp' in sys.modules:  import sklearn.gaussian_process as sklgp
 
+        
         # helper routines to allow arbitrary combinations of kernels.
         # as this is noisy data, 'WHITE' should be among the choices; testing revealed 'RBF' and 'MATERN' both worked reasonably well
         def add_kernel(kernel,newkernel):
@@ -528,14 +530,14 @@ class PlateImage(object):
                                     'wellsize':50,
                                     'linewidth':3}
         # update default values if part of the argument dictionary
-        if kwargs.has_key('FigureWellDistance'):        self.figureparameters['wellsize']   = kwargs['FigureWellDistance']
-        if kwargs.has_key('FigureWellRadius'):          self.figureparameters['wellradius'] = kwargs['FigureWellRadius']
-        if kwargs.has_key('FigureLinewidth'):           self.figureparameters['linewidth']  = kwargs['FigureLinewidth']
-        if kwargs.has_key('FigureColorFull'):           self.figureparameters['colors'][0]  = kwargs['FigureColorFull']
-        if kwargs.has_key('FigureColorEmpty'):          self.figureparameters['colors'][1]  = kwargs['FigureColorEmpty']
-        if kwargs.has_key('FigureColorBackground'):     self.figureparameters['colors'][2]  = kwargs['FigureColorBackground']
-        if kwargs.has_key('FigureColorBorder'):         self.figureparameters['colors'][3]  = kwargs['FigureColorBorder']
-        if kwargs.has_key('FigureColorBorderNoGrowth'): self.figureparameters['colors'][4]  = kwargs['FigureColorBorderNoGrowth']
+        if 'FigureWellDistance'        in kwargs.keys():    self.figureparameters['wellsize']   = kwargs['FigureWellDistance']
+        if 'FigureWellRadius'          in kwargs.keys():    self.figureparameters['wellradius'] = kwargs['FigureWellRadius']
+        if 'FigureLinewidth'           in kwargs.keys():    self.figureparameters['linewidth']  = kwargs['FigureLinewidth']
+        if 'FigureColorFull'           in kwargs.keys():    self.figureparameters['colors'][0]  = kwargs['FigureColorFull']
+        if 'FigureColorEmpty'          in kwargs.keys():    self.figureparameters['colors'][1]  = kwargs['FigureColorEmpty']
+        if 'FigureColorBackground'     in kwargs.keys():    self.figureparameters['colors'][2]  = kwargs['FigureColorBackground']
+        if 'FigureColorBorder'         in kwargs.keys():    self.figureparameters['colors'][3]  = kwargs['FigureColorBorder']
+        if 'FigureColorBorderNoGrowth' in kwargs.keys():    self.figureparameters['colors'][4]  = kwargs['FigureColorBorderNoGrowth']
 
 
         
