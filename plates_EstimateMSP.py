@@ -168,7 +168,7 @@ def main():
         else:                               transitions = data.compute_growth_nogrowth_transition(i,threshold)
         
         curdata             = dict()
-        curdata['Title']    = data.titles[i]
+        curdata['Title']    = data.titles[i].replace(' ','_')
         curdata['Filename'] = data.filenames[i]
 
         if 'NfuncB'      in args.InferenceMethods:  curdata.update(estimate_Tau_sMIC_linearFit_AsFuncOfB(transitions, Rsquared = True))
