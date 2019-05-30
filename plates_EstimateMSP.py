@@ -7,6 +7,7 @@ import numpy as np
 import argparse
 import sys,math
 import uncertainties
+import pandas as pd
 
 from uncertainties.umath import exp as uexp
 
@@ -41,83 +42,77 @@ def LMSQ(x,y):
 
 def estimate_Tau_sMIC_linearFit_AsFuncOfB(initialconditions,Rsquared = False):
     # theory predicts: N > 1 + tau LOG(B/sMIC)
-    Nm1 = initialconditions[:,1] - 1
-    lB  = np.log(initialconditions[:,0])
+    Nm1                   = initialconditions[:,1] - 1
+    lB                    = np.log(initialconditions[:,0])
     
-    fit,cov = LMSQ(lB,Nm1)
-    ret     = uncertainties.correlated_values(fit,cov)
+    fit,cov               = LMSQ(lB,Nm1)
+    fit_with_errors       = uncertainties.correlated_values(fit,cov)
     
-    u_tau   = 1./ret[1]
-    u_sMIC  = uexp(-ret[0]/ret[1])
+    ret                   = dict()
+    ret['NB_tau']         = uncertainties.nominal_value(1./fit_with_errors[1])
+    ret['NB_tau_stddev']  = uncertainties.std_dev(1./fit_with_errors[1])
+    ret['NB_sMIC']        = uncertainties.nominal_value(uexp(-fit_with_errors[0]/fit_with_errors[1]))
+    ret['NB_sMIC_stddev'] = uncertainties.std_dev(uexp(-fit_with_errors[0]/fit_with_errors[1]))
     
-    tau     = np.array([uncertainties.nominal_value(u_tau), uncertainties.std_dev(u_tau)])
-    sMIC    = np.array([uncertainties.nominal_value(u_sMIC),uncertainties.std_dev(u_sMIC)])
-    
-    if not Rsquared:
-        return tau,sMIC
-    else:
-        residuals = Nm1 - fit[0] - fit[1] * lB
-        ss_res    = np.sum(residuals**2)
-        ss_tot    = np.sum((Nm1 - np.mean(Nm1))**2)
-        R2        = 1 - ss_res/ss_tot
-        return tau,sMIC,R2
+    if Rsquared:
+        residuals         = Nm1 - fit[0] - fit[1] * lB
+        ss_res            = np.sum(residuals**2)
+        ss_tot            = np.sum((Nm1 - np.mean(Nm1))**2)
+        ret['NB_R2']      = 1 - ss_res/ss_tot
+
+    return ret
 
 
 def estimate_Tau_sMIC_linearFit_AsFuncOfN(initialconditions,Rsquared = False):
     # theory predicts: N > 1 + tau LOG(B/sMIC)
-    Nm1 = initialconditions[:,1] - 1
-    lB  = np.log(initialconditions[:,0])
+    Nm1                   = initialconditions[:,1] - 1
+    lB                    = np.log(initialconditions[:,0])
     
-    fit,cov = LMSQ(Nm1,lB)
-    ret     = uncertainties.correlated_values(fit,cov)
+    fit,cov               = LMSQ(Nm1,lB)
+    fit_with_errors       = uncertainties.correlated_values(fit,cov)
     
-    u_tau   = ret[1]
-    u_sMIC  = uexp(ret[0])
+    ret                   = dict()
+    ret['BN_tau']         = uncertainties.nominal_value(fit_with_errors[1])
+    ret['BN_tau_stddev']  = uncertainties.std_dev(fit_with_errors[1])
+    ret['BN_sMIC']        = uncertainties.nominal_value(fit_with_errors[0])
+    ret['BN_sMIC_stddev'] = uncertainties.std_dev(fit_with_errors[0])
     
-    tau     = np.array([uncertainties.nominal_value(u_tau), uncertainties.std_dev(u_tau)])
-    sMIC    = np.array([uncertainties.nominal_value(u_sMIC),uncertainties.std_dev(u_sMIC)])
-    
-    if not Rsquared:
-        return tau,sMIC
-    else:
-        residuals = lB - fit[0] - fit[1] * Nm1
-        ss_res    = np.sum(residuals**2)
-        ss_tot    = np.sum((lB - np.mean(lB))**2)
-        R2        = 1 - ss_res/ss_tot
-        return tau,sMIC,R2
-    
+    if Rsquared:
+        residuals         = lB - fit[0] - fit[1] * Nm1
+        ss_res            = np.sum(residuals**2)
+        ss_tot            = np.sum((lB - np.mean(lB))**2)
+        ret['BN_R2']      = 1 - ss_res/ss_tot
+        
+    return ret
 
 
 def estimate_Tau_sMIC_singleParameter(initialconditions,Rsquared = False):
+    ret = dict()
     
     # ssMIC as geometric mean of all point with smallest initial population size
-    mincelldens = np.min(initialconditions[:,1])
-    smic_list   = [m[0] for m in initialconditions if m[1] == mincelldens]
-    smic        = np.power(np.prod(smic_list),1./len(smic_list))
+    mincelldens     = np.min(initialconditions[:,1])
+    smic_list       = [m[0] for m in initialconditions if m[1] == mincelldens]
+    ret['SP_sMIC']  = np.power(np.prod(smic_list),1./len(smic_list))
     
     # intermediate values for estimation
     Nm1 = initialconditions[:,1] - 1
     lBM = np.log(initialconditions[:,0]/smic)
     
-    
-    tau1 = np.sum(lBM/Nm1)
+    ret['SPNB_tau'] = np.sum(lBM/Nm1)
+    ret['SPBN_tau'] = np.dot(Nm1,lBM)/(np.dot(Nm1,Nm1))
+
     if Rsquared:
-        residuals = tau1 - lBM/Nm1
-        ss_res    = np.sum(residuals**2)
-        ss_tot    = np.sum((lBM/Nm1 - np.mean(lBM/Nm1))**2)
-        R2_1      = 1 - ss_res/ss_tot
+        residuals       = ret['SPNB_tau'] - lBM/Nm1
+        ss_res          = np.sum(residuals**2)
+        ss_tot          = np.sum((lBM/Nm1 - np.mean(lBM/Nm1))**2)
+        ret['SPNB_R2']  = 1 - ss_res/ss_tot
     
-    tau2 = np.dot(Nm1,lBM)/(np.dot(Nm1,Nm1))
-    if Rsquared:
-        residuals = lBM - tau2 * Nm1
-        ss_res    = np.sum(residuals**2)
-        ss_tot    = np.sum((lBM - np.mean(lBM))**2)
-        R2_2      = 1 - ss_res/ss_tot
+        residuals       = lBM - ret['SPBN_tau'] * Nm1
+        ss_res          = np.sum(residuals**2)
+        ss_tot          = np.sum((lBM - np.mean(lBM))**2)
+        ret['SPBN_R2']  = 1 - ss_res/ss_tot
     
-    if not Rsquared:
-        return tau1,tau2,smic
-    else:
-        return tau1,R2_1,tau2,R2_2,smic
+    return ret
 
 
 # *****************************************************************
@@ -130,17 +125,19 @@ def main():
     parser_io = parser.add_argument_group(description = "==== I/O parameters ====")
     parser_io.add_argument("-i", "--infiles",              nargs = "*")
     parser_io.add_argument("-X", "--BasenameExtension",    default = "",    type=str)
-    parser_io.add_argument("-P", "--Images",               default = False, action = "store_true")
-    parser_io.add_argument("-T", "--ThresholdFiles",       default = False, action = "store_true")
-    parser_io.add_argument("-F", "--DataFiles",            default = False, action = "store_true")
     parser_io.add_argument("-G", "--GnuplotOutput",        default = None,  type = str)
     parser_io.add_argument("-g", "--GnuplotColumns",       default = 3,     type = int)
+    parser_io.add_argument("-P", "--GenerateImages",       default = False, action = "store_true")
+    parser_io.add_argument("-T", "--WriteThresholdFiles",  default = False, action = "store_true")
+    parser_io.add_argument("-F", "--WriteDataFiles",       default = False, action = "store_true")
     
     parser_alg = parser.add_argument_group(description = "==== Algorithm parameters ====")
-    parser_alg.add_argument("-t", "--growthThreshold",           default = None,  type = float)
-    parser_alg.add_argument("-D", "--designassignment",          default = [],    type = int, nargs = "*")
+    parser_alg.add_argument("-M", "--InferenceMethods",          default = ["NfuncB"], choices = ["NfuncB", "BfuncN", "SingleParam"], nargs = "*")
+    parser_alg.add_argument("-t", "--GrowthThreshold",           default = None,  type = float)
+    parser_alg.add_argument("-D", "--DesignAssignment",          default = [],    type = int, nargs = "*")
     parser_alg.add_argument("-d", "--GenerateDesign",            default = [6e6,4,6.25,2], nargs = 4, type = int)
     parser_alg.add_argument("-R", "--GaussianProcessRegression", default = False, action = "store_true")
+    
     
     args = parser.parse_args()
     
@@ -154,46 +151,53 @@ def main():
         gnuplotoutput.write_init()
    
     if data.count_design == 0:
-        data.generate_design(xstart = args.GenerateDesign[0],xdilution = args.GenerateDesign[1], ystart = args.GenerateDesign[2], ydilution = args.GenerateDesign[3])
+        data.generate_design(xstart = args.GenerateDesign[0], xdilution = args.GenerateDesign[1], ystart = args.GenerateDesign[2], ydilution = args.GenerateDesign[3])
     
-    lastfn    = ""
     threshold = data.EstimateGrowthThreshold(dataID = None) # None indicates *ALL* data
+    
+    columnlist = np.array(['Title','Filename'])
+    if 'NfuncB'      in args.InferenceMethods:  columnlist = np.concatenate([columnlist,['NB_sMIC','NB_sMIC_stddev','NB_tau','NB_tau_stddev','NB_R2']])
+    if 'BfuncN'      in args.InferenceMethods:  columnlist = np.concatenate([columnlist,['BN_sMIC','BN_sMIC_stddev','BN_tau','BN_tau_stddev','BN_R2']])
+    if 'SingleParam' in args.InferenceMethods:  columnlist = np.concatenate([columnlist,['SP_sMIC','SPNB_tau','SPNB_R2','SPBN_tau','SPBN_R2']])
+
+    results = pd.DataFrame(columns = columnlist)
+
+    print('{:30s}  '.format('Title') + '  '.join(['{:>14.14s}'.format(c) for c in columnlist[2:]]))
 
     for i in range(len(data)):
         if args.GaussianProcessRegression:  transitions = data.compute_growth_nogrowth_transition_GPR(i,threshold)
         else:                               transitions = data.compute_growth_nogrowth_transition(i,threshold)
-            
-        title    = data.titles[i]
-        fn       = data.filenames[i]
-        basename = (args.BasenameExtension + title).replace(' ','_')
-        if fn != lastfn:
-            print("# data from '{:s}'".format(fn))
-            print("{:40s} {:>14s} {:>14s} {:>14s} {:>14s} {:>14s} {:>14s} {:>14s} {:>14s} {:>14s} {:>14s} {:>14s} {:>14s} {:>14s} {:>14s} {:>14s}".format('#','tau lfB','taudev lfB', 'ssmic lfB', 'ssmicdev lfB', 'R2 lfB','tau lfN','taudev lfN', 'ssmic lfN', 'ssmicdev lfN', 'R2 lfN', 'tau Nmin', 'R2 Nmin', 'tau Bmin', 'R2 Bmin', 'ssmic 1'))
-        lastfn = fn
         
-        
-        tau1,smic1,Rsq1 = estimate_Tau_sMIC_linearFit_AsFuncOfB(transitions,Rsquared = True)
-        tau2,smic2,Rsq2 = estimate_Tau_sMIC_linearFit_AsFuncOfN(transitions,Rsquared = True)
-        tau3,Rsq3,tau4,Rsq4,smic3 = estimate_Tau_sMIC_singleParameter(transitions,Rsquared = True)
-        
+        curdata             = dict()
+        curdata['Title']    = data.titles[i]
+        curdata['Filename'] = data.filenames[i]
+
+        if 'NfuncB'      in args.InferenceMethods:  curdata.update(estimate_Tau_sMIC_linearFit_AsFuncOfB(transitions, Rsquared = True))
+        if 'BfuncN'      in args.InferenceMethods:  curdata.update(estimate_Tau_sMIC_linearFit_AsFuncOfN(transitions, Rsquared = True))
+        if 'SingleParam' in args.InferenceMethods:  curdata.update(estimate_Tau_sMIC_singleParameter(transitions, Rsquared = True))
+
+        results.append(curdata,ignore_index = True)
+
         # main output
-        print("{:40s} {:14.6e} {:14.6e} {:14.6e} {:14.6e} {:14.6e} {:14.6e} {:14.6e} {:14.6e} {:14.6e} {:14.6e} {:14.6e} {:14.6e} {:14.6e} {:14.6e} {:14.6e}".format(basename,tau1[0],tau1[1],smic1[0],smic1[1],Rsq1,tau2[0],tau2[1],smic2[0],smic2[1],Rsq2,tau3,Rsq3,tau4,Rsq4,smic3))
+        print('{:30.30s}  '.format(curdata['Title']) + '  '.join(['{:14.6e}'.format(curdata[c]) for c in columnlist[2:]]))
         
-        
-        if args.ThresholdFiles or not args.GnuplotOutput is None:
+        basename = (args.BasenameExtension + data.titles[i]).replace(' ','_')
+
+        if args.WriteThresholdFiles or not args.GnuplotOutput is None:
             np.savetxt(basename + '.threshold',transitions)
         
         if not args.GnuplotOutput is None:
-            gnuplotoutput.write_plot(i,basename,basename,tau1[0],smic1[0],tau2[0],smic2[0],tau3,tau4,smic3)
+            gnuplotoutput.write_plot(i,basename,basename,curdata)
 
-        if args.Images:
+        if args.GenerateImages:
             prc.PlateImage(data[i],data.titles[i])
     
-        if args.DataFiles:
+        if args.WriteDataFiles:
             outfilename = basename + '.data'
             data.write_data_to_file(i,outfilename)
+            
+    return results
 
-        i += 1
     
 if __name__ == "__main__":
     main()

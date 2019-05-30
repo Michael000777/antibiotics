@@ -699,14 +699,14 @@ class GnuplotMSPOutput(object):
         self.fp.write("set samples 1001\n")
         self.fp.write("\n")
         
-    def write_plot(self,ID,label,basename,tau1,smic1,tau2,smic2,tau3,tau4,smic3):
+    def write_plot(self,ID,label,basename,curdata):
         self.fp.write("set origin xoffset + {:d} * xsize, yoffset + {:d} * ysize\n" . format(ID//self.__columns,ID % self.__columns))
         self.fp.write("set label 1 \"{:s}\"\n".format(label.replace('_','-')))
         self.fp.write("plot \\\n")
-        self.fp.write("  n0(x,{:e},{:e}) w l lw 4 lc rgb \"#4e9a06\",\\\n".format(tau3,smic3))
-        self.fp.write("  n0(x,{:e},{:e}) w l lw 4 lc rgb \"#8ae234\",\\\n".format(tau4,smic3))
-        self.fp.write("  n0(x,{:e},{:e}) w l lw 4 lc rgb \"#a40000\",\\\n".format(tau1,smic1))
-        self.fp.write("  n0(x,{:e},{:e}) w l lw 4 lc rgb \"#ef2929\",\\\n".format(tau2,smic2))
+        if 'SP_sMIC' in curdata.keys(): self.fp.write("  n0(x,{:e},{:e}) w l lw 4 lc rgb \"#4e9a06\",\\\n".format(curdata['SPBN_tau'],curdata['SP_sMIC']))
+        if 'SP_sMIC' in curdata.keys(): self.fp.write("  n0(x,{:e},{:e}) w l lw 4 lc rgb \"#8ae234\",\\\n".format(curdata['SPNB_tau'],curdata['SP_sMIC']))
+        if 'BN_sMIC' in curdata.keys(): self.fp.write("  n0(x,{:e},{:e}) w l lw 4 lc rgb \"#a40000\",\\\n".format(curdata['BN_tau'],curdata['BN_sMIC']))
+        if 'NB_sMIC' in curdata.keys(): self.fp.write("  n0(x,{:e},{:e}) w l lw 4 lc rgb \"#ef2929\",\\\n".format(curdata['NB_tau'],curdata['NB_sMIC']))
         self.fp.write("  \"{:s}\" u 1:2 w p pt 7 ps 2 lc rgb \"#3465a4\"\n".format(basename + '.threshold'))
         self.fp.write("\n")
         
