@@ -122,13 +122,14 @@ def main():
     parser = argparse.ArgumentParser()
     
     parser_io = parser.add_argument_group(description = "==== I/O parameters ====")
-    parser_io.add_argument("-i", "--infiles",              nargs = "*")
-    parser_io.add_argument("-X", "--BasenameExtension",    default = "",    type=str)
-    parser_io.add_argument("-G", "--GnuplotOutput",        default = None,  type = str)
-    parser_io.add_argument("-g", "--GnuplotColumns",       default = 3,     type = int)
-    parser_io.add_argument("-P", "--GenerateImages",       default = False, action = "store_true")
-    parser_io.add_argument("-T", "--WriteThresholdFiles",  default = False, action = "store_true")
-    parser_io.add_argument("-F", "--WriteDataFiles",       default = False, action = "store_true")
+    parser_io.add_argument("-i", "--infiles",                  nargs = "*")
+    parser_io.add_argument("-X", "--BasenameExtension",        default = "",    type=str)
+    parser_io.add_argument("-G", "--GnuplotOutput",            default = None,  type = str)
+    parser_io.add_argument("-g", "--GnuplotColumns",           default = 3,     type = int)
+    parser_io.add_argument("-P", "--GenerateImages",           default = False, action = "store_true")
+    parser_io.add_argument("-I", "--PlotInoculumCombinations", default = False, action = "store_true")
+    parser_io.add_argument("-T", "--WriteThresholdFiles",      default = False, action = "store_true")
+    parser_io.add_argument("-F", "--WriteDataFiles",           default = False, action = "store_true")
     
     parser_alg = parser.add_argument_group(description = "==== Algorithm parameters ====")
     parser_alg.add_argument("-M", "--InferenceMethods",          default = ["NfuncB"], choices = ["NfuncB", "BfuncN", "SingleParam"], nargs = "*")
@@ -186,7 +187,10 @@ def main():
             np.savetxt(basename + '.threshold',transitions)
         
         if not args.GnuplotOutput is None:
-            gnuplotoutput.write_plot(i,basename,basename,curdata)
+            if args.PlotInoculumCombinations:
+                gnuplotoutput.write_plot(i,basename,basename,curdata, inoculum = data.get_design(dataID = i))
+            else:
+                gnuplotoutput.write_plot(i,basename,basename,curdata)
 
         if args.GenerateImages:
             prc.PlateImage(data[i], data.titles[i], growththreshold = threshold)

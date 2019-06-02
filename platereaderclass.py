@@ -668,13 +668,13 @@ class PlateImage(object):
 
 class GnuplotMSPOutput(object):
     def __init__(self,**kwargs):
-        self.__outfilename = kwargs.get('outfilename','out.gnuplot')
-        self.__columns     = kwargs.get('GnuplotColumns',3)
-        self.__datasize    = kwargs.get('datasize')
-        self.__xrange      = kwargs.get('xrange',[1e-3,1e2])
-        self.__yrange      = kwargs.get('yrange',[1e2,1e8])
+        self.__outfilename   = kwargs.get('outfilename','out.gnuplot')
+        self.__columns       = kwargs.get('GnuplotColumns',3)
+        self.__datasize      = kwargs.get('datasize')
+        self.__xrange        = kwargs.get('xrange',[1e-3,1e2])
+        self.__yrange        = kwargs.get('yrange',[1e2,1e8])
         
-        self.fp            = open(self.__outfilename,'w')
+        self.fp              = open(self.__outfilename,'w')
         
     def __del__(self):
         self.fp.close()
@@ -705,10 +705,13 @@ class GnuplotMSPOutput(object):
         self.fp.write("set samples 1001\n")
         self.fp.write("\n")
         
-    def write_plot(self,ID,label,basename,curdata):
+    def write_plot(self,ID,label,basename,curdata, inoculum = None):
         self.fp.write("set origin xoffset + {:d} * xsize, yoffset + {:d} * ysize\n" . format(ID//self.__columns,ID % self.__columns))
         self.fp.write("set label 1 \"{:s}\"\n".format(label.replace('_','-')))
         self.fp.write("plot \\\n")
+        if not inoculum is None:
+            for x,y in zip(inoculum[0].flatten(),inoculum[1].flatten()):
+                self.fp.write("   '+' u ({:e}):({:e}) w p pt 7 ps 1 lc rgb \"#eeeeec\",\\\n".format(x,y))
         if 'SP_sMIC' in curdata.keys(): self.fp.write("  n0(x,{:e},{:e}) w l lw 4 lc rgb \"#4e9a06\",\\\n".format(curdata['SPBN_tau'],curdata['SP_sMIC']))
         if 'SP_sMIC' in curdata.keys(): self.fp.write("  n0(x,{:e},{:e}) w l lw 4 lc rgb \"#8ae234\",\\\n".format(curdata['SPNB_tau'],curdata['SP_sMIC']))
         if 'BN_sMIC' in curdata.keys(): self.fp.write("  n0(x,{:e},{:e}) w l lw 4 lc rgb \"#a40000\",\\\n".format(curdata['BN_tau'],curdata['BN_sMIC']))
