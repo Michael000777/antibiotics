@@ -75,7 +75,7 @@ class PlateReaderData(object):
                     self.__sheetnames.append(sheet)
                     self.__filenames.append(fn)
                     try:
-                        design = kwargs.get("designassignment",[])[i]
+                        design = kwargs.get("DesignAssignment",[])[i]
                         if not 0 <= design < len(self.__designdata):
                             raise KeyError
                         self.__designassignment.append(design)
@@ -84,8 +84,7 @@ class PlateReaderData(object):
                     i+=1
         else:
             raise IOError('No input data provided. Use option -i FILENAME1 [FILENAME2 ...]')
-                
-            
+        
         
     ########################################
     # code for loading and generating data #
@@ -271,7 +270,6 @@ class PlateReaderData(object):
                     # logarithmic interpolation
                     i, j  = int(pos[0]//1), int(pos[1]//1)
                     di,dj = pos[0] - i, pos[1] - j
-
                     x = self.__designdata[self.__designassignment[dataID]][0][i,j]
                     if j + 1 < platesize[1] and dj > 0:
                         x *= np.power(self.__designdata[self.__designassignment[dataID]][0][i,j+1]/self.__designdata[self.__designassignment[dataID]][0][i,j],dj)
@@ -279,7 +277,7 @@ class PlateReaderData(object):
                     y = self.__designdata[self.__designassignment[dataID]][1][i,j]
                     if i + 1 < platesize[0] and di > 0:
                         y *= np.power(self.__designdata[self.__designassignment[dataID]][1][i+1,j]/self.__designdata[self.__designassignment[dataID]][1][i,j],di)
-                        
+                    
                     r.append(np.array([x,y]))
 
         if len(r) > 0:
