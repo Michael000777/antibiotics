@@ -38,7 +38,7 @@ class TimeIntegratorDynamics(object):
         # population sizes and substrate
         self.__init = np.concatenate([
                                 np.array(self.__params.get('PD_initsize'),dtype=np.float),
-                                np.array(self.__params.get('PD_initsubstr'),dtype=np.float)
+                                np.array([self.__params.get('PD_initsubstr')],dtype=np.float)
                                 ])
         self.__headers = np.concatenate([
                                 np.array(['N{:d}'.format(i) for i in range(self.__numstrains)]),
@@ -91,9 +91,11 @@ class TimeIntegratorDynamics(object):
         self.__time = 0.
 
 
-    # helper routines in dynamics
-    # effective growthrate incorporating death due to antibiotics
     def growthrateEff(self,Bin,substrate):
+        """
+        helper routines in dynamics
+        effective growthrate incorporating death due to antibiotics
+        """
         if substrate <= 0:
             return np.zeros(self.__numstrains)
         else:
@@ -101,8 +103,10 @@ class TimeIntegratorDynamics(object):
             return self.__params['PD_growthrate'] * (1. - bink)/(1. + bink/self.__params['AB_gamma'])
     
     
-    # returns dynamics for either Michalis-Menten (?) dynamics of AB reduction, or simple linear dynamics
     def ABreduction(self,E,B,internal = False):
+        """
+        returns dynamics for either Michalis-Menten (?) dynamics of AB reduction, or simple linear dynamics
+        """
         if self.__ABreduction_saturation:
             if internal:
                 return self.__params['AB_epsilon'] * E / (E + self.__params['AB_michaelismenten']*self.__params['i1es']) * B
@@ -112,26 +116,32 @@ class TimeIntegratorDynamics(object):
             return self.__params['AB_epsilon'] * E * B
     
     
-    # assume permeability of membrane is fast enough for internal concentrations to equilibrate
-    # sigmaB, sigmaE >> 1
     def dynamics_approximateinternal(self, x, time):
+        """
+        assume permeability of membrane is fast enough for internal concentrations to equilibrate
+        sigmaB, sigmaE >> 1
+        """
         N    = x[0:self.__numstrains]
         S    = x[self.__numstrains]
         Eout = x[1+self.__numstrains]
         Bout = x[2+self.__numstrains]
-        
-        Bin  = Bout * (self.__params['rs'] + Eout + self.__params['AB_michaelismenten']) / ((self.__params['rs'] + Eout) * (1 + self.__params['es']) + self.__params['AB_michaelismenten'])
+        Ein  = self.__params['rs'] + Eout
+
+        if self.__ABreduction_saturation:   Bin = Bout / (1. + self.__params['es'] * Ein/(Ein + self.__params['AB_michaelismenten']))
+        else:                               Bin = Bout / (1. + self.__params['es'] * Ein)
         
         return np.concatenate([
                         np.array(self.growthrateEff(Bin,S) * N),
                         np.array([-np.sum(self.growthrateEff(np.zeros(self.__numstrains),S)/self.__params.get('PD_yield') * N),
                             self.__params['PD_volumeseparation'] * np.sum(self.__params['PD_rho'] * N),
-                            -self.ABreduction(Eout,Bout) + self.__params['i1es'] * self.__params['PD_volumeseparation'] * np.sum(N * self.ABreduction(Eout + self.__params['rs'],Bout, internal = True))])
+                            -self.ABreduction(Eout,Bout) + self.__params['PD_volumeseparation'] * np.sum(self.__params['i1es'] * N * self.ABreduction(Ein,Bout, internal = True))])
                         ])
                         
                         
-    # all internal concentrations modelled explicitely
     def dynamics_trackinternal(self, x, time):
+        """
+        all internal concentrations modelled explicitely
+        """
         N    = x[0:self.__numstrains]
         S    = x[self.__numstrains]
         Ein  = x[1+self.__numstrains:1+2*self.__numstrains]
@@ -145,7 +155,7 @@ class TimeIntegratorDynamics(object):
                         np.array(self.__params.get('PD_rho') - self.__params.get('PD_sigma') * (Ein - Eout)),
                         np.array(self.ABreduction(Ein,Bin) - self.__params.get('AB_sigma') * (Bin - Bout)),
                         [np.sum(self.__params.get('PD_sigma') * N * self.__params.get('PD_volumeseparation') * (Ein - Eout))],
-                        [-self.ABreduction(Eout,Bout) - self.__params.get('AB_sigma') * self.__params.get('PD_volumeseparation') *  np.sum(N * (Bout - Bin))]
+                        [-self.ABreduction(Eout,Bout) - self.__params.get('PD_volumeseparation') *  np.sum(self.__params.get('AB_sigma') * N * (Bout - Bin))]
                     ])
 
 
@@ -201,7 +211,7 @@ def main():
     parser_AB = parser.add_argument_group(description = "==== AB parameters ====")
     parser_AB.add_argument("-k", "--AB_kappa",           default = 2.,   type = float)
     parser_AB.add_argument("-g", "--AB_gamma",           default = 2.,   type = float)
-    parser_AB.add_argument("-B", "--AB_initconc",        default = 2.,   type = float)
+    parser_AB.add_argument("-B", "--AB_initconc",        default = 1.5,  type = float)
     parser_AB.add_argument("-e", "--AB_epsilon",         default = 1.,   type = float)
     parser_AB.add_argument("-s", "--AB_sigma",           default = [1.], type = float, nargs = "*")
     parser_AB.add_argument("-K", "--AB_michaelismenten", default = None, type = float)
