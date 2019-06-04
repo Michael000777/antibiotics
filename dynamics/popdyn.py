@@ -21,9 +21,10 @@ class TimeIntegratorDynamics(object):
         ny  = len(self.__params.get('PD_yield'))
         ns  = len(self.__params.get('PD_initsize'))
         nr  = len(self.__params.get('PD_rho'))
-        nsi = len(self.__params.get('PD_sigma'))
+        nsE = len(self.__params.get('PD_sigma'))
+        nsB = len(self.__params.get('AB_sigma'))
         
-        assert na == ny == ns == nr == nsi
+        assert na == ny == ns == nr == nsE == nsB
         
         self.__numstrains = na
         
@@ -201,8 +202,8 @@ def main():
     parser_AB.add_argument("-k", "--AB_kappa",           default = 2.,   type = float)
     parser_AB.add_argument("-g", "--AB_gamma",           default = 2.,   type = float)
     parser_AB.add_argument("-B", "--AB_initconc",        default = 2.,   type = float)
-    parser_AB.add_argument("-s", "--AB_sigma",           default = 1.,   type = float)
     parser_AB.add_argument("-e", "--AB_epsilon",         default = 1.,   type = float)
+    parser_AB.add_argument("-s", "--AB_sigma",           default = [1.], type = float, nargs = "*")
     parser_AB.add_argument("-K", "--AB_michaelismenten", default = None, type = float)
     
     parser_PopDyn = parser.add_argument_group(description = "==== Population dynamics ====")
