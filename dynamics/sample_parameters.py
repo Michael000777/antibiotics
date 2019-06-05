@@ -8,12 +8,12 @@ import sys,math
 def read_averages_from_file(filename):
     ret = dict()
     try:
-        fp = open(args.AverageFile,'r')
+        fp = open(filename,'r')
         for line in fp.readlines():
             values = line.split()
             ret[values[0]] = float(values[1])
     except:
-        pass
+        raise IOError
     return ret
 
 
