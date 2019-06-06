@@ -218,7 +218,7 @@ def main():
     
     parser_PopDyn = parser.add_argument_group(description = "==== Population dynamics ====")
     parser_PopDyn.add_argument("-N", "--PD_initsize",             default = [500], type = float, nargs = "*")
-    parser_PopDyn.add_argument("-S", "--PD_initsubstr",           default = 1e6,   type = float, nargs = "*")
+    parser_PopDyn.add_argument("-S", "--PD_initsubstr",           default = 1e6,   type = float)
     parser_PopDyn.add_argument("-a", "--PD_growthrate",           default = [1],   type = float, nargs = "*")
     parser_PopDyn.add_argument("-y", "--PD_yield",                default = [1],   type = float, nargs = "*")
     parser_PopDyn.add_argument("-r", "--PD_rho",                  default = [1],   type = float, nargs = "*")
