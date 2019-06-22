@@ -86,7 +86,13 @@ class TimeIntegratorDynamics(object):
                                 ['Eout'],
                                 ['Bout']
                                 ])
-            
+
+        self.__expressioncost = False
+        if np.any(self.__params['PD_ExpressionCost'] > 0):
+            assert len(self.__params['PD_ExpressionCost']) == self.__numstrains
+            self.__expressioncost = True
+        
+        
         self.__data = [self.__init]
         self.__time = 0.
 
@@ -96,11 +102,17 @@ class TimeIntegratorDynamics(object):
         helper routines in dynamics
         effective growthrate incorporating death due to antibiotics
         """
-        if substrate <= 0:
-            return np.zeros(self.__numstrains)
-        else:
+        
+        ret = np.zeros(self.__numstrains)
+        
+        if substrate > 0:
             bink = np.power(Bin,self.__params['AB_kappa'])
-            return self.__params['PD_growthrate'] * (1. - bink)/(1. + bink/self.__params['AB_gamma'])
+            ret  = self.__params['PD_growthrate'] * (1. - bink)/(1. + bink/self.__params['AB_gamma'])
+        
+        if self.__expressioncost:
+            ret -= self.__params['PD_ExpressionCost'] * self.__params['PD_growthrate']
+        
+        return ret
     
     
     def ABreduction(self,E,B,internal = False):
@@ -217,14 +229,15 @@ def main():
     parser_AB.add_argument("-K", "--AB_michaelismenten", default = None, type = float)
     
     parser_PopDyn = parser.add_argument_group(description = "==== Population dynamics ====")
-    parser_PopDyn.add_argument("-N", "--PD_initsize",             default = [500], type = float, nargs = "*")
-    parser_PopDyn.add_argument("-S", "--PD_initsubstr",           default = 1e6,   type = float, nargs = "*")
-    parser_PopDyn.add_argument("-a", "--PD_growthrate",           default = [1],   type = float, nargs = "*")
-    parser_PopDyn.add_argument("-y", "--PD_yield",                default = [1],   type = float, nargs = "*")
-    parser_PopDyn.add_argument("-r", "--PD_rho",                  default = [1],   type = float, nargs = "*")
-    parser_PopDyn.add_argument("-p", "--PD_sigma",                default = [1],   type = float, nargs = "*")
-    parser_PopDyn.add_argument("-V", "--PD_volumeseparation",     default = 1e-10, type = float)
-    parser_PopDyn.add_argument("-F", "--PD_fastinternaldynamics", default = False, action = "store_true")
+    parser_PopDyn.add_argument("-N", "--PD_initsize",             default = [500],  type = float, nargs = "*")
+    parser_PopDyn.add_argument("-S", "--PD_initsubstr",           default = 1e6,    type = float, nargs = "*")
+    parser_PopDyn.add_argument("-a", "--PD_growthrate",           default = [1],    type = float, nargs = "*")
+    parser_PopDyn.add_argument("-y", "--PD_yield",                default = [1],    type = float, nargs = "*")
+    parser_PopDyn.add_argument("-r", "--PD_rho",                  default = [1],    type = float, nargs = "*")
+    parser_PopDyn.add_argument("-p", "--PD_sigma",                default = [1],    type = float, nargs = "*")
+    parser_PopDyn.add_argument("-R", "--PD_ExpressionCost",       default = [0],    type = float, nargs = "*")
+    parser_PopDyn.add_argument("-V", "--PD_volumeseparation",     default = 1e-10,  type = float)
+    parser_PopDyn.add_argument("-F", "--PD_fastinternaldynamics", default = False,  action = "store_true")
     
     parser_alg = parser.add_argument_group(description = "==== Algorithm parameters ====")
     parser_alg.add_argument("-t", "--ALG_integratorstep", default = 1e-3,  type = float)
