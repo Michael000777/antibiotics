@@ -109,8 +109,8 @@ class TimeIntegratorDynamics(object):
             bink = np.power(Bin,self.__params['AB_kappa'])
             ret  = self.__params['PD_growthrate'] * (1. - bink)/(1. + bink/self.__params['AB_gamma'])
         
-        if self.__expressioncost:
-            ret -= self.__params['PD_ExpressionCost'] * self.__params['PD_growthrate']
+            if self.__expressioncost:
+                ret -= self.__params['PD_ExpressionCost'] * self.__params['PD_growthrate']
         
         return ret
     
@@ -235,7 +235,7 @@ def main():
     parser_PopDyn.add_argument("-y", "--PD_yield",                default = [1],    type = float, nargs = "*")
     parser_PopDyn.add_argument("-r", "--PD_rho",                  default = [1],    type = float, nargs = "*")
     parser_PopDyn.add_argument("-p", "--PD_sigma",                default = [1],    type = float, nargs = "*")
-    parser_PopDyn.add_argument("-R", "--PD_ExpressionCost",       default = [0],    type = float, nargs = "*")
+    parser_PopDyn.add_argument("-C", "--PD_ExpressionCost",       default = [0],    type = float, nargs = "*")
     parser_PopDyn.add_argument("-V", "--PD_volumeseparation",     default = 1e-10,  type = float)
     parser_PopDyn.add_argument("-F", "--PD_fastinternaldynamics", default = False,  action = "store_true")
     
