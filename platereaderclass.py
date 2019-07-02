@@ -669,8 +669,8 @@ class GnuplotMSPOutput(object):
         self.__outfilename   = kwargs.get('outfilename','out.gnuplot')
         self.__columns       = kwargs.get('GnuplotColumns',3)
         self.__datasize      = kwargs.get('datasize')
-        self.__xrange        = kwargs.get('xrange',[1e-3,1e2])
-        self.__yrange        = kwargs.get('yrange',[1e2,1e8])
+        self.__xrange        = np.array(kwargs.get('GnuplotRange',[1e-3,1e2,0,0])[:2],dtype=np.float)
+        self.__yrange        = np.array(kwargs.get('GnuplotRange',[0,0,1e2,1e8])[2:],dtype=np.float)
         
         self.fp              = open(self.__outfilename,'w')
         

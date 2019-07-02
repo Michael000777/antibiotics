@@ -126,7 +126,7 @@ def main():
     parser_io.add_argument("-X", "--BasenameExtension",        default = "",    type=str)
     parser_io.add_argument("-G", "--GnuplotOutput",            default = None,  type = str)
     parser_io.add_argument("-g", "--GnuplotColumns",           default = 3,     type = int)
-    parser_io.add_argument("-R", "--GnuplotRange",             default = [1e-3,1e2,1e2,1e8], nargs = 4)
+    parser_io.add_argument("-r", "--GnuplotRange",             default = [1e-3,1e2,1e2,1e8], nargs = 4, type = float)
     parser_io.add_argument("-P", "--GenerateImages",           default = False, action = "store_true")
     parser_io.add_argument("-I", "--PlotInoculumCombinations", default = False, action = "store_true")
     parser_io.add_argument("-T", "--WriteThresholdFiles",      default = False, action = "store_true")
@@ -189,9 +189,9 @@ def main():
         
         if not args.GnuplotOutput is None:
             if args.PlotInoculumCombinations:
-                gnuplotoutput.write_plot(i,basename,basename,curdata, xrange = args.GnuplotRange[:2], yrange = args.GnuplotRange[2:], inoculum = data.get_design(dataID = i))
+                gnuplotoutput.write_plot(i, basename, basename, curdata, inoculum = data.get_design(dataID = i))
             else:
-                gnuplotoutput.write_plot(i,basename,basename,curdata, xrange = args.GnuplotRange[:2], yrange = args.GnuplotRange[2:])
+                gnuplotoutput.write_plot(i, basename, basename, curdata)
 
         if args.GenerateImages:
             prc.PlateImage(data[i], data.titles[i], growththreshold = threshold)
