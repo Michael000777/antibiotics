@@ -39,6 +39,10 @@ def main():
         sys.argv.append('-S')
         sys.argv.append('1e7')
 
+    outfilename = 'out'
+    if '-o' in sys.argv:
+        outfilename = sys.argv[sys.argv.index('-o') + 1]
+
     bsize = 12
     nsize =  8
     
@@ -59,7 +63,7 @@ def main():
             plate[bdilution,nsize - ndilution - 1] = popsize[-1]
 
     threshold = computeThreshold(plate)
-    prc.PlateImage(data = plate.T, growththreshold = threshold)
+    prc.PlateImage(data = plate.T, growththreshold = threshold, outfilename = outfilename)
 
 
 
