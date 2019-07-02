@@ -42,7 +42,7 @@ def main():
     bsize = 12
     nsize =  8
     
-    plate = np.zeros((nsize,bsize))
+    plate = np.zeros((bsize,nsize))
     
     for ndilution in np.arange(nsize):
         N0 = 2.4e1 * 4**ndilution
@@ -56,10 +56,10 @@ def main():
             popsize = np.array(run['N0'])
             print('{:.2e} {:.2e} {:.2e}'.format(N0,B0,popsize[-1]))
             
-            plate[ndilution,bdilution] = popsize[-1]
+            plate[bdilution,nsize - ndilution - 1] = popsize[-1]
 
     threshold = computeThreshold(plate)
-    prc.PlateImage(data = plate, growththreshold = threshold)
+    prc.PlateImage(data = plate.T, growththreshold = threshold)
 
 
 
