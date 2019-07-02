@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-
 import numpy as np
 import argparse
 import sys,math
@@ -9,6 +8,7 @@ sys.path.append(sys.path[0] + '/..')
 
 import popdyn
 import platereaderclass as prc
+
 
 def computeThreshold(x):
     x   = list(x.flatten())
@@ -20,6 +20,8 @@ def computeThreshold(x):
     sB  = np.array([(mT * w[k] - m[k])**2/(w[k]*(1.-w[k])) if w[k]*(1.-w[k]) > 0 else 0 for k in range(lx)])
     idx = np.argmax(sB)
     return sx[idx]
+
+
 
 def main():
 
