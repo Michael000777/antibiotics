@@ -199,17 +199,20 @@ class TimeIntegratorDynamics(object):
             self.Step()
             if self.__verbose: print(self.lastdata_str)
 
-            
+        return self.data
+
     def save_data(self):
-        t = np.array([np.arange(len(self.__data)) * self.__params.get('ALG_integratorstep',1e-3) * self.__params.get('ALG_outputstep')]).T
-        d = pd.DataFrame(data = np.concatenate([t, self.__data],axis=1), columns = np.concatenate([['#time'],self.__headers]))
-        d.to_csv(self.__params.get('outfilename','out'), sep=' ', float_format = '%.6e', index = False)
+        self.data.to_csv(self.__params.get('outfilename','out'), sep=' ', float_format = '%.6e', index = False)
 
 
     def __getattr__(self,key):
         if key == "lastdata_str":
             return '{:7.3f} '.format(self.__time) + ' '.join(['{:14.6e}'.format(v) for v in self.__data[-1]])
-
+        elif key == "data":
+            t = np.array([np.arange(len(self.__data)) * self.__params.get('ALG_integratorstep',1e-3) * self.__params.get('ALG_outputstep')]).T
+            d = pd.DataFrame(data = np.concatenate([t, self.__data],axis=1), columns = np.concatenate([['#time'],self.__headers]))
+            return d
+            
 
 
 
@@ -230,7 +233,7 @@ def main():
     
     parser_PopDyn = parser.add_argument_group(description = "==== Population dynamics ====")
     parser_PopDyn.add_argument("-N", "--PD_initsize",             default = [500],  type = float, nargs = "*")
-    parser_PopDyn.add_argument("-S", "--PD_initsubstr",           default = 1e6,    type = float, nargs = "*")
+    parser_PopDyn.add_argument("-S", "--PD_initsubstr",           default = 1e6,    type = float)
     parser_PopDyn.add_argument("-a", "--PD_growthrate",           default = [1],    type = float, nargs = "*")
     parser_PopDyn.add_argument("-y", "--PD_yield",                default = [1],    type = float, nargs = "*")
     parser_PopDyn.add_argument("-r", "--PD_rho",                  default = [1],    type = float, nargs = "*")
@@ -255,10 +258,12 @@ def main():
     # initialize object and run dynamics, save data to text file
     abdyn = TimeIntegratorDynamics(**vars(args))
     
-    abdyn.run()
+    d = abdyn.run()
     abdyn.save_data()
 
-
+    return d
 
 if __name__ == "__main__":
     main()
+
+    
