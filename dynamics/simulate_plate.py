@@ -53,7 +53,7 @@ def main():
         sys.argv[N0index] = str(N0)
 
         for bdilution in np.arange(bsize):
-            B0 = 2e-3 * 2**bdilution
+            B0 = 4e-2 * 2**bdilution
             sys.argv[B0index] = str(B0)
 
             run = popdyn.main()
