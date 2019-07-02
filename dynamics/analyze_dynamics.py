@@ -64,7 +64,9 @@ def main():
             p = extract_parameters(line)
             print(p)
             ft = pca.fit_transform(p)
+            f  = pca.fit(p)
             print(ft)
+            print(f)
             
 
 if __name__ == "__main__":
