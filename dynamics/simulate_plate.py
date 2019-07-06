@@ -39,22 +39,25 @@ def main():
         sys.argv.append('-S')
         sys.argv.append('1e7')
 
-    outfilename = 'out'
-    if '-o' in sys.argv:
-        outfilename = sys.argv[sys.argv.index('-o') + 1]
-
+    if not '-o' in sys.argv:
+        sys.argv.append('-o')
+        sys.argv.append('out')
+    outindex = sys.argv.index('-o') + 1
+    
     bsize = 12
     nsize =  8
     
     plate = np.zeros((bsize,nsize))
     
     for ndilution in np.arange(nsize):
-        N0 = 2.4e1 * 4**ndilution
+        N0 = 2e1 * 4**ndilution
         sys.argv[N0index] = str(N0)
 
         for bdilution in np.arange(bsize):
             B0 = 4e-2 * 2**bdilution
             sys.argv[B0index] = str(B0)
+            
+            sys.argv[outindex] = 'out.N{:.2e}.B{:.2e}'.format(N0,B0)
 
             run = popdyn.main()
             popsize = np.array(run['N0'])
