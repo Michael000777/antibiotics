@@ -66,7 +66,7 @@ def main():
             plate[bdilution,nsize - ndilution - 1] = popsize[-1]
 
     threshold = computeThreshold(plate)
-    prc.PlateImage(data = plate.T, growththreshold = threshold, outfilename = outfilename)
+    prc.PlateImage(data = plate.T, growththreshold = threshold, outfilename = 'out')
 
 
 
