@@ -184,7 +184,7 @@ class TimeIntegratorDynamics(object):
         x = self.__data[-1]
         for s in range(self.__params.get('ALG_outputstep',20)):
             xnew = self.RungeKutta4(self.dynamics, x)
-            xnew[np.where(xnew < 0.)[0]]                     = 0.   # concentrations cannot be smaller than 1
+            xnew[np.where(xnew < 0.)[0]]                     = 0.   # concentrations cannot be smaller than 0
             xnew[np.where(xnew[:self.__numstrains] < 1.)[0]] = 0.   # populations are extinct if less than 1 individual
             x    = xnew[:]
         self.__data  = np.concatenate([self.__data,[x]], axis = 0)
