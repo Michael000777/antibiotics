@@ -709,11 +709,11 @@ class GnuplotMSPOutput(object):
         self.fp.write("plot \\\n")
         if not inoculum is None:
             for x,y in zip(inoculum[0].flatten(),inoculum[1].flatten()):
-                self.fp.write("   '+' u ({:e}):({:e}) w p pt 7 ps 1 lc rgb \"#eeeeec\",\\\n".format(x,y))
+                self.fp.write("   '+' u ({:e}):({:e}) w p pt 7 ps 1 lc rgb \"#eeeeec\" title \"\",\\\n".format(x,y))
         if 'SP_sMIC' in curdata.keys(): self.fp.write("  n0(x,{:e},{:e}) w l lw 4 lc rgb \"#4e9a06\" title \"SP BN\",\\\n".format(curdata['SPBN_tau'],curdata['SP_sMIC']))
         if 'SP_sMIC' in curdata.keys(): self.fp.write("  n0(x,{:e},{:e}) w l lw 4 lc rgb \"#8ae234\" title \"SP NB\",\\\n".format(curdata['SPNB_tau'],curdata['SP_sMIC']))
         if 'BN_sMIC' in curdata.keys(): self.fp.write("  n0(x,{:e},{:e}) w l lw 4 lc rgb \"#a40000\" title \"BN\",\\\n".format(curdata['BN_tau'],curdata['BN_sMIC']))
         if 'NB_sMIC' in curdata.keys(): self.fp.write("  n0(x,{:e},{:e}) w l lw 4 lc rgb \"#ef2929\" title \"NB\",\\\n".format(curdata['NB_tau'],curdata['NB_sMIC']))
-        self.fp.write("  \"{:s}\" u 1:2 w p pt 7 ps 2 lc rgb \"#3465a4\"\n".format(basename + '.threshold'))
+        self.fp.write("  \"{:s}\" u 1:2 w p pt 7 ps 2 lc rgb \"#3465a4\" title \"\"\n".format(basename + '.threshold'))
         self.fp.write("\n")
         
