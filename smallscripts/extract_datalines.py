@@ -5,6 +5,7 @@ import argparse
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("-i","--infile")
+    parser.add_argument("-o","--outsuffix",default=None,type=str)
     args = parser.parse_args()
 
     try:    fp = open(args.infile,"r")
@@ -22,7 +23,9 @@ def main():
     
     if len(curdata) > 0:
         for name in curdata.keys():
-            fp = open(name,'w')
+            outname = name
+            if not args.outsuffix is None:outname += args.outsuffix
+            fp = open(outname,'w')
             for line in curdata[name]:
                 fp.write(line)
             fp.close()
