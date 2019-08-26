@@ -687,6 +687,7 @@ class GnuplotMSPOutput(object):
         self.fp.write("set yra [{:e}:{:e}]\n".format(*self.__yrange))
         self.fp.write("set logscale\n")
         self.fp.write("set format \"10^\{%L\}\"\n")
+        self.fp.write("set samples 2001")
         ysize = 1./self.__columns
         if self.__datasize % self.__columns == 0:
             xsize = 1./(self.__datasize//self.__columns)
