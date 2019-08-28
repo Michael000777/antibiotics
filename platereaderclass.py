@@ -327,7 +327,7 @@ class PlateReaderData(object):
             return sx[idx]
     
     
-    def GaussianProcessRegression(self,dataID,kernellist = ['white','matern'], restarts_optimizer = 10, outputgrid = (50,50), AxesLogScale = True):
+    def GaussianProcessRegression(self,dataID,kernellist = ['white','matern'], restarts_optimizer = 10, outputgrid = (20,20), AxesLogScale = True):
         
         if not 'sklgp' in sys.modules:  import sklearn.gaussian_process as sklgp
 
@@ -406,8 +406,8 @@ class PlateReaderData(object):
             return grid0, grid1, platedata_prediction.reshape(outshape)
     
 
-    def compute_growth_nogrowth_transition_GPR(self,dataID,threshold):
-        grid0,grid1,pdpred = self.GaussianProcessRegression(dataID)
+    def compute_growth_nogrowth_transition_GPR(self,dataID,threshold,gridsize = 20):
+        grid0,grid1,pdpred = self.GaussianProcessRegression(dataID,outputgrid = (gridsize,gridsize))
         contours           = measure.find_contours(pdpred,threshold)
         
         finalc    = list()
