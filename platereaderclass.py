@@ -406,8 +406,8 @@ class PlateReaderData(object):
             return grid0, grid1, platedata_prediction.reshape(outshape)
     
 
-    def compute_growth_nogrowth_transition_GPR(self,dataID,threshold,gridsize = 20):
-        grid0,grid1,pdpred = self.GaussianProcessRegression(dataID,outputgrid = (gridsize,gridsize))
+    def compute_growth_nogrowth_transition_GPR(self,dataID,threshold,gridsize = 20, kernellist = ['white','matern']):
+        grid0,grid1,pdpred = self.GaussianProcessRegression(dataID,outputgrid = (gridsize,gridsize), kernellist)
         contours           = measure.find_contours(pdpred,threshold)
         
         finalc    = list()
