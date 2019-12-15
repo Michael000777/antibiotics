@@ -218,6 +218,44 @@ class PlateReaderData(object):
         fp.close()
 
 
+
+    def IndexPosition_to_Inoculum(self, dataID, indexpos, gridsize):
+
+        gridsize_original = np.shape(self.__designdata[self.__designassignment[dataID]][0])
+        if isinstance(gridsize,(tuple,list,np.ndarray)):
+            gridsize_output = np.array([gridsize[0],gridsize[1]])
+        elif isinstance(gridsize,int):
+            gridsize_output = np.array([gridsize,gridsize])
+        else:
+            raise TypeError
+        
+        # rescale indices from outputgrid to original grid
+        indexpos_original = indexpos * gridsize_original/gridsize_output
+        
+        # get integet and fractional parts of this index
+        i                 = np.array(np.trunc(indexpos_original),dtype=int)
+        f                 = indexpos_original - i
+
+        design0           = self.__designdata[self.__designassignment[dataID]][0]
+        design1           = self.__designdata[self.__designassignment[dataID]][1]
+
+        # startvalues from one endpoint of the grid 
+        inoc0             = design0[i[0],i[1]]
+        inoc1             = design1[i[0],i[1]]
+
+        # interpolate with logarithmic scale
+        if i[0]+1 < gridsize_original[0]:
+            inoc0        *= np.power(design0[i[0]+1,i[1]]/design0[i[0],i[1]],f[0])
+            inoc1        *= np.power(design1[i[0]+1,i[1]]/design1[i[0],i[1]],f[0])
+        
+        if i[1]+1 < gridsize_original[1]:
+            inoc0        *= np.power(design0[i[0],i[1]+1]/design0[i[0],i[1]],f[1])
+            inoc1        *= np.power(design1[i[0],i[1]+1]/design1[i[0],i[1]],f[1])
+
+        r = np.array([inoc0, inoc1], dtype = np.float)
+        return r
+
+
     ##########################
     # data analysis routines #
     ##########################
@@ -327,7 +365,7 @@ class PlateReaderData(object):
             return sx[idx]
     
     
-    def GaussianProcessRegression(self,dataID,kernellist = ['white','matern'], restarts_optimizer = 10, outputgrid = (20,20), AxesLogScale = True):
+    def GaussianProcessRegression(self,dataID,kernellist = ['white','matern'], restarts_optimizer = 10, outputgrid = (20,20), AxesLogScale = True, input_on_indexgrid = False):
         
         if not 'sklgp' in sys.modules:  import sklearn.gaussian_process as sklgp
 
@@ -366,17 +404,47 @@ class PlateReaderData(object):
 
         
         # main routine of GPR
-        
-        # reformat input data into correct array sizes
-        datagrid0   = self.__designdata[self.__designassignment[dataID]][0].flatten()
-        datagrid1   = self.__designdata[self.__designassignment[dataID]][1].flatten()
-        if AxesLogScale:
-            design  = np.array([[np.log(x),np.log(y)] for x,y in zip(datagrid0,datagrid1)])
+
+        # define input grid on which data is defined, define output grid
+        if isinstance(outputgrid,(list,tuple,np.ndarray)):
+            outshape = (outputgrid[0],outputgrid[1])
+        elif isinstance(outputgrid,int):
+            outshape = (outputgrid,outputgrid)
         else:
-            design  = np.array([[x,y] for x,y in zip(datagrid0,datagrid1)])
+            raise TypeError
+        
+        input_on_indexgrid = False
+        if input_on_indexgrid:
+            # (1) either simply as grid of indices
+            # input
+            designgridsize = np.shape(self.__designdata[self.__designassignment[dataID]][0])
+            datagrid0      = (np.repeat([np.arange(designgridsize[0], dtype = np.float)], axis = 0, repeats = designgridsize[1])).flatten()
+            datagrid1      = (np.repeat([np.arange(designgridsize[1], dtype = np.float)], axis = 0, repeats = designgridsize[0]).T).flatten()
+            design         = np.array([[x,y] for x,y in zip(datagrid0,datagrid1)])
+            
+            # output
+            grid0          = np.linspace(0, datagrid0[-1], num = outshape[0])
+            grid1          = np.linspace(0, datagrid1[-1], num = outshape[1])
+            grid           = np.array([[x[0],x[1]] for x in itertools.product(grid0,grid1)])
+            
+        else:
+            # (2) or on the orignal inoculum data:
+            # reformat input data into correct array sizes
+            # input 
+            datagrid0      = self.__designdata[self.__designassignment[dataID]][0].flatten()
+            datagrid1      = self.__designdata[self.__designassignment[dataID]][1].flatten()
+            if AxesLogScale:
+                design     = np.array([[np.log(x),np.log(y)] for x,y in zip(datagrid0,datagrid1)])
+            else:
+                design     = np.array([[x,y] for x,y in zip(datagrid0,datagrid1)])
+            
+            # output
+            grid0          = np.linspace(np.log(np.min(datagrid0)),np.log(np.max(datagrid0)),num=outputgrid[0])
+            grid1          = np.linspace(np.log(np.min(datagrid1)),np.log(np.max(datagrid1)),num=outputgrid[1])
+            grid           = np.array([[x[0],x[1]] for x in itertools.product(grid0,grid1)])
+        
         platedata   = np.array([self.__data[dataID].flatten()]).T
 
-        
         # define kernels for Gaussian Process
         kernel = generate_kernel(kernellist)
         
@@ -387,39 +455,22 @@ class PlateReaderData(object):
         gp.fit(design,platedata)
         
         # use GPR to estimate values on (fine) grid
-        if isinstance(outputgrid,(list,tuple)):
-            grid0            = np.linspace(np.log(np.min(datagrid0)),np.log(np.max(datagrid0)),num=outputgrid[0])
-            grid1            = np.linspace(np.log(np.min(datagrid1)),np.log(np.max(datagrid1)),num=outputgrid[1])
-            outshape         = (outputgrid[0],outputgrid[1])
-        elif isinstance(outputgrid,int):
-            grid0            = np.linspace(np.log(np.min(datagrid0)),np.log(np.max(datagrid0)),num=outputgrid)
-            grid1            = np.linspace(np.log(np.min(datagrid1)),np.log(np.max(datagrid1)),num=outputgrid)
-            outshape         = (outputgrid,outputgrid)
-        else:
-            raise TypeError
-        grid                 = np.array([[x[0],x[1]] for x in itertools.product(grid0,grid1)])
         platedata_prediction = gp.predict(grid)
         
-        if AxesLogScale:
+        if AxesLogScale and not input_on_indexgrid:
             return np.exp(grid0), np.exp(grid1), platedata_prediction.reshape(outshape)
         else:
             return grid0, grid1, platedata_prediction.reshape(outshape)
     
 
     def compute_growth_nogrowth_transition_GPR(self,dataID,threshold,gridsize = 20, kernellist = ['white','matern']):
-        grid0,grid1,pdpred = self.GaussianProcessRegression(dataID,outputgrid = (gridsize,gridsize), kernellist)
+        grid0,grid1,pdpred = self.GaussianProcessRegression(dataID,outputgrid = (gridsize,gridsize), kernellist = kernellist, input_on_indexgrid = True)
         contours           = measure.find_contours(pdpred,threshold)
         
         finalc    = list()
         for c in contours:
-            for i in range(len(c)):
-                ix, iy = int(np.floor(c[i,0])), int(np.floor(c[i,1]))
-                px, py = c[i,0] - ix, c[i,1] - iy
-                try:    cx = (1.-px)*np.log(grid0[ix]) + px*np.log(grid0[ix+1])
-                except: cx = np.log(grid0[ix])
-                try:    cy = (1.-py)*np.log(grid1[iy]) + py*np.log(grid1[iy+1])
-                except: cy = np.log(grid1[iy])
-                finalc.append(np.exp([cx,cy]))
+            for indexpos in c:
+                finalc.append(self.IndexPosition_to_Inoculum(dataID,indexpos, gridsize = (gridsize,gridsize)))
         finalc = np.vstack(finalc)
         return finalc
     
