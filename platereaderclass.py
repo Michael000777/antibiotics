@@ -6,6 +6,7 @@ import argparse
 import sys,math
 import itertools
 
+
 from skimage import measure
 
 ## loaded upon chosing output format below
@@ -219,23 +220,72 @@ class PlateReaderData(object):
 
 
 
-    def IndexPosition_to_Inoculum(self, dataID, indexpos, gridsize):
+    ##########################
+    # data analysis routines #
+    ##########################
 
-        gridsize_original = np.shape(self.__designdata[self.__designassignment[dataID]][0])
-        if isinstance(gridsize,(tuple,list,np.ndarray)):
-            gridsize_output = np.array([gridsize[0],gridsize[1]])
-        elif isinstance(gridsize,int):
-            gridsize_output = np.array([gridsize,gridsize])
-        else:
-            raise TypeError
+    def EstimateGrowthThreshold(self, dataID = None, logscale = True):
+        # otsu's method
+        # described in IEEE TRANSACTIONS ON SYSTEMS, MAN, AND CYBERNETICS (1979)
+        # usually used to binarize photos into black/white, here we separate the growth/no-growth transition
+        # modified to use 'uniform distribution', ie in each bin of the histogram we have one value, but spacing between bins is different
         
-        # rescale indices from outputgrid to original grid
-        indexpos_original = indexpos * gridsize_original/gridsize_output
+        # prepare data
+        x = list()
+        if dataID is None:
+            # all data is used
+            for i in range(len(self)):
+                x += list(self.__data[i].flatten())
+        elif isinstance(dataID,(list)):
+            # pick specific IDs, provided as list
+            for i in dataID:
+                x += list(self.__data[i].flatten())
+        elif isinstance(dataID,int):
+            # estimate threshold only from a single plate
+            x = list(self.__data[dataID])
+        else:
+            # something went wrong
+            raise TypeError
+        x = np.array(x)
+        if logscale: x = np.log(x)
+
+        # need sorted data
+        sx = np.sort(x)
+        lx = len(x)
+
+        # actual algorithm
+        w   = np.arange(lx,dtype=np.float)/lx
+        m   = np.array([np.mean(sx[:k]) * w[k] if k > 0 else 0 for k in range(lx)])
+        mT  = np.mean(sx)
+        
+        sB  = np.array([(mT * w[k] - m[k])**2/(w[k]*(1.-w[k])) if w[k]*(1.-w[k]) > 0 else 0 for k in range(lx)])
+        idx = np.argmax(sB)
+        
+        if logscale:
+            return np.exp(sx[idx])
+        else:
+            return sx[idx]
+
+
+
+    def IndexPosition_to_Inoculum(self, dataID, indexpos, gridsize = None):
+        gridsize_original = np.shape(self.__designdata[self.__designassignment[dataID]][0])
+        if not gridsize is None:
+            if isinstance(gridsize,(tuple,list,np.ndarray)):
+                gridsize_output = np.array([gridsize[0],gridsize[1]])
+            elif isinstance(gridsize,int):
+                gridsize_output = np.array([gridsize,gridsize])
+            else:
+                raise TypeError
+            
+            # rescale indices from outputgrid to original grid
+            indexpos_original = indexpos * gridsize_original/gridsize_output
+        else:
+            indexpos_original = indexpos
         
         # get integet and fractional parts of this index
         i                 = np.array(np.trunc(indexpos_original),dtype=int)
         f                 = indexpos_original - i
-
         design0           = self.__designdata[self.__designassignment[dataID]][0]
         design1           = self.__designdata[self.__designassignment[dataID]][1]
 
@@ -256,9 +306,6 @@ class PlateReaderData(object):
         return r
 
 
-    ##########################
-    # data analysis routines #
-    ##########################
     
     def get_noise_estimates(self,dataID):
         # get rough estimate of noise as variance between neighboring wells on plate
@@ -289,6 +336,10 @@ class PlateReaderData(object):
 
 
 
+    #########################################################################
+    # copmute transitions between growth and no-growth with various methods #
+    #########################################################################
+
     def transitions(self,threshold,useGPR = False):
         if useGPR:
             threshold = self.EstimateGrowthThreshold(dataID = None)
@@ -305,18 +356,7 @@ class PlateReaderData(object):
         allcont = measure.find_contours(self.__data[dataID],threshold)
         for cont in allcont:
             for pos in cont:
-                    # logarithmic interpolation
-                    i, j  = int(pos[0]//1), int(pos[1]//1)
-                    di,dj = pos[0] - i, pos[1] - j
-                    x = self.__designdata[self.__designassignment[dataID]][0][i,j]
-                    if j + 1 < platesize[1] and dj > 0:
-                        x *= np.power(self.__designdata[self.__designassignment[dataID]][0][i,j+1]/self.__designdata[self.__designassignment[dataID]][0][i,j],dj)
-                    
-                    y = self.__designdata[self.__designassignment[dataID]][1][i,j]
-                    if i + 1 < platesize[0] and di > 0:
-                        y *= np.power(self.__designdata[self.__designassignment[dataID]][1][i+1,j]/self.__designdata[self.__designassignment[dataID]][1][i,j],di)
-                    
-                    r.append(np.array([x,y]))
+                r.append(self.IndexPosition_to_Inoculum(dataID,pos))
 
         if len(r) > 0:
             return np.vstack(r)
@@ -324,46 +364,9 @@ class PlateReaderData(object):
             return None
 
 
-
-    def EstimateGrowthThreshold(self, dataID = None, logscale = True):
-        # otsu's method
-        # described in IEEE TRANSACTIONS ON SYSTEMS, MAN, AND CYBERNETICS (1979)
-        # usually used to binarize photos into black/white, here we separate the growth/no-growth transition
-        # here modified to have uniform distribution, ie in each bin of the histogram we have one value, but spacing between bins is different
-        
-        x = list()
-        if dataID is None:
-            # all data is used
-            for i in range(len(self)):
-                x += list(self.__data[i].flatten())
-        elif isinstance(dataID,(list)):
-            # pick specific IDs, provided as list
-            for i in dataID:
-                x += list(self.__data[i].flatten())
-        elif isinstance(dataID,int):
-            # estimate threshold only from a single plate
-            x = list(self.__data[dataID])
-        else:
-            # something went wrong
-            raise TypeError
-        x = np.array(x)
-        if logscale: x = np.log(x)
-
-        sx = np.sort(x)
-        lx = len(x)
-
-        w   = np.arange(lx,dtype=np.float)/lx
-        m   = np.array([np.mean(sx[:k]) * w[k] if k > 0 else 0 for k in range(lx)])
-        mT  = np.mean(sx)
-        
-        sB  = np.array([(mT * w[k] - m[k])**2/(w[k]*(1.-w[k])) if w[k]*(1.-w[k]) > 0 else 0 for k in range(lx)])
-        idx = np.argmax(sB)
-        
-        if logscale:
-            return np.exp(sx[idx])
-        else:
-            return sx[idx]
-    
+    # Gaussian Process Regression:
+    # first get a much finer grid of interpolated data, not just the 8x12 wells on a plate
+    # then estimate curve through this surface on fine grid at threshold
     
     def GaussianProcessRegression(self,dataID,kernellist = ['white','matern'], restarts_optimizer = 10, outputgrid = (20,20), AxesLogScale = True, input_on_indexgrid = False):
         
@@ -439,10 +442,11 @@ class PlateReaderData(object):
                 design     = np.array([[x,y] for x,y in zip(datagrid0,datagrid1)])
             
             # output
-            grid0          = np.linspace(np.log(np.min(datagrid0)),np.log(np.max(datagrid0)),num=outputgrid[0])
-            grid1          = np.linspace(np.log(np.min(datagrid1)),np.log(np.max(datagrid1)),num=outputgrid[1])
+            grid0          = np.linspace(np.log(datagrid0[0]),np.log(datagrid0[-1]),num=outputgrid[0])
+            grid1          = np.linspace(np.log(datagrid1[0]),np.log(datagrid1[-1]),num=outputgrid[1])
             grid           = np.array([[x[0],x[1]] for x in itertools.product(grid0,grid1)])
         
+        # set 'training data' to measurements from plates
         platedata   = np.array([self.__data[dataID].flatten()]).T
 
         # define kernels for Gaussian Process
@@ -463,9 +467,16 @@ class PlateReaderData(object):
             return grid0, grid1, platedata_prediction.reshape(outshape)
     
 
-    def compute_growth_nogrowth_transition_GPR(self,dataID,threshold,gridsize = 20, kernellist = ['white','matern']):
+    def compute_growth_nogrowth_transition_GPR(self,dataID,threshold,gridsize = 20, kernellist = ['white','matern'], SaveGPRSurfaceToFile = False):
         grid0,grid1,pdpred = self.GaussianProcessRegression(dataID,outputgrid = (gridsize,gridsize), kernellist = kernellist, input_on_indexgrid = True)
         contours           = measure.find_contours(pdpred,threshold)
+        
+        if SaveGPRSurfaceToFile:
+            filename = self.titles[dataID].replace(' ','_') + '.gprsurface'
+            outgrid0 = np.repeat([grid0],len(grid1),axis=0)
+            outgrid1 = np.repeat([grid1],len(grid0),axis=0).T
+            surfacedata = np.array([[x,y,z] for x,y,z in zip(outgrid0.flatten(),outgrid1.flatten(),pdpred.flatten())])
+            np.savetxt(filename,surfacedata)
         
         finalc    = list()
         for c in contours:

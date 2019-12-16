@@ -167,7 +167,7 @@ def main():
     print('{:30s}  '.format('# Title') + '  '.join(['{:>14.14s}'.format(c) for c in columnlist[2:]]))
 
     for i in range(len(data)):
-        if args.GaussianProcessRegression:  transitions = data.compute_growth_nogrowth_transition_GPR(i, threshold, gridsize = args.GPRGridsize, kernellist = args.GPRKernellist)
+        if args.GaussianProcessRegression:  transitions = data.compute_growth_nogrowth_transition_GPR(i, threshold, gridsize = args.GPRGridsize, kernellist = args.GPRKernellist, SaveGPRSurfaceToFile = args.WriteDataFiles)
         else:                               transitions = data.compute_growth_nogrowth_transition    (i, threshold)
         
         curdata             = dict()
