@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 from __future__ import print_function
 
@@ -51,10 +51,11 @@ def main():
     parser_io = parser.add_argument_group(description = "==== I/O parameters ====")
     parser_io.add_argument("-i","--infiles",nargs="*",default=[])
     parser_io.add_argument("-D","--designassignment",nargs="*",default=None)
-    parser_io.add_argument("-o","--OutfilePrefix",default="GPR",type=str)
+    parser_io.add_argument("-o","--OutfilePrefix",default="",type=str)
     parser_io.add_argument("-n","--OutputGrid",default=50,type=int)
     parser_io.add_argument("-v","--verbose", default = False, action = "store_true")
     parser_io.add_argument("-T","--Threshold", default = False, action = "store_true")
+    parser_io.add_argument("-F","--DataFiles", default = False, action = "store_true")
     
     parser_alg = parser.add_argument_group(description = "==== Algorithm parameters ====")
     parser_alg.add_argument("-K","--Kernels",nargs="*", default = ["const","white","matern"])
@@ -102,8 +103,8 @@ def main():
 
         
         # output
-        if len(args.OutfilePrefix) > 0: outfile = (args.OutfilePrefix.strip(' _') + '_' + title).replace(' ','_')
-        else:                           outfile = title.replace(' ','_')
+        if len(args.OutfilePrefix) > 0: outfile = (args.OutfilePrefix.strip(' _') + '_' + title).replace(' ','_') + '.gprsurface'
+        else:                           outfile = title.replace(' ','_') + '.gprsurface'
         fp = open(outfile,'w')
         lastx = 0
         for x,z in zip(grid,platedata_prediction):
@@ -111,6 +112,16 @@ def main():
             lastx = x[0]
             fp.write('{:.6e} {:.6e} {:.6e}\n'.format(np.exp(x[0]),np.exp(x[1]),z[0]))
         fp.close()
+
+        if args.DataFiles:
+            datafile = title.replace(' ','_') + '.data'
+            fp = open(datafile,'w')
+            lasty = 0
+            for x,y,z in zip(datagrid0,datagrid1,platedata):
+                if y != lasty: fp.write('\n')
+                lasty = y
+                fp.write('{} {} {}\n'.format(x,y,z[0]))
+            fp.close()
 
 
 
@@ -134,7 +145,7 @@ def main():
                     finalc.append(np.exp([cx,cy]))
 
             finalc = np.vstack(finalc)
-            np.savetxt(outfile + '.threshold',finalc)
+            np.savetxt(title.replace(' ','_') + '.threshold',finalc)
         
 
 

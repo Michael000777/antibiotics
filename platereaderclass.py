@@ -218,7 +218,14 @@ class PlateReaderData(object):
         
         fp.close()
 
-
+    def write_3d_array_to_file(self, filename, data, xgrid, ygrid):
+        fp = open(filename,'w')
+        for i,x in enumerate(xgrid):
+            for j,y in enumerate(ygrid):
+                fp.write('{} {} {}\n'.format(x,y,data[i,j]))
+            fp.write('\n')
+        fp.close()
+                         
 
     ##########################
     # data analysis routines #
@@ -269,6 +276,7 @@ class PlateReaderData(object):
 
 
     def IndexPosition_to_Inoculum(self, dataID, indexpos, gridsize = None):
+        # rescale new grid to original 8x12 plates grid
         gridsize_original = np.shape(self.__designdata[self.__designassignment[dataID]][0])
         if not gridsize is None:
             if isinstance(gridsize,(tuple,list,np.ndarray)):
@@ -278,12 +286,11 @@ class PlateReaderData(object):
             else:
                 raise TypeError
             
-            # rescale indices from outputgrid to original grid
             indexpos_original = indexpos * gridsize_original/gridsize_output
         else:
             indexpos_original = indexpos
         
-        # get integet and fractional parts of this index
+        # get integer and fractional parts of this index
         i                 = np.array(np.trunc(indexpos_original),dtype=int)
         f                 = indexpos_original - i
         design0           = self.__designdata[self.__designassignment[dataID]][0]
@@ -400,6 +407,8 @@ class PlateReaderData(object):
             klist = [ku.upper() for ku in kernellist if ku.upper() in available_kernels]
             for k in klist:
                 kernel = add_kernel(kernel,k)
+            if not 'WHITE' in klist:
+                kernel = add_design(kernel,'WHITE')
             if not kernel is None:
                 return kernel
             else:
@@ -442,8 +451,8 @@ class PlateReaderData(object):
                 design     = np.array([[x,y] for x,y in zip(datagrid0,datagrid1)])
             
             # output
-            grid0          = np.linspace(np.log(datagrid0[0]),np.log(datagrid0[-1]),num=outputgrid[0])
-            grid1          = np.linspace(np.log(datagrid1[0]),np.log(datagrid1[-1]),num=outputgrid[1])
+            grid0          = np.linspace(np.log(np.min(datagrid0)),np.log(np.max(datagrid0)),num=outputgrid[0])
+            grid1          = np.linspace(np.log(np.min(datagrid1)),np.log(np.max(datagrid1)),num=outputgrid[1])
             grid           = np.array([[x[0],x[1]] for x in itertools.product(grid0,grid1)])
         
         # set 'training data' to measurements from plates
@@ -467,21 +476,20 @@ class PlateReaderData(object):
             return grid0, grid1, platedata_prediction.reshape(outshape)
     
 
-    def compute_growth_nogrowth_transition_GPR(self,dataID,threshold,gridsize = 20, kernellist = ['white','matern'], SaveGPRSurfaceToFile = False):
-        grid0,grid1,pdpred = self.GaussianProcessRegression(dataID,outputgrid = (gridsize,gridsize), kernellist = kernellist, input_on_indexgrid = True)
+    def compute_growth_nogrowth_transition_GPR(self,dataID,threshold,gridsize = 20, kernellist = ['white','matern'], SaveGPRSurfaceToFile = False, FitToIndexGrid = False):
+        grid0,grid1,pdpred = self.GaussianProcessRegression(dataID,outputgrid = (gridsize,gridsize), kernellist = kernellist, input_on_indexgrid = FitToIndexGrid)
         contours           = measure.find_contours(pdpred,threshold)
         
         if SaveGPRSurfaceToFile:
             filename = self.titles[dataID].replace(' ','_') + '.gprsurface'
-            outgrid0 = np.repeat([grid0],len(grid1),axis=0)
-            outgrid1 = np.repeat([grid1],len(grid0),axis=0).T
-            surfacedata = np.array([[x,y,z] for x,y,z in zip(outgrid0.flatten(),outgrid1.flatten(),pdpred.flatten())])
-            np.savetxt(filename,surfacedata)
+            self.write_3d_array_to_file(filename, data = pdpred, xgrid = grid0, ygrid = grid1)
         
         finalc    = list()
         for c in contours:
-            for indexpos in c:
-                finalc.append(self.IndexPosition_to_Inoculum(dataID,indexpos, gridsize = (gridsize,gridsize)))
+            for pos in c:
+                if FitToIndexGrid:
+                    pos = self.IndexPosition_to_Inoculum(dataID, pos, gridsize = (gridsize,gridsize))
+                finalc.append(pos)
         finalc = np.vstack(finalc)
         return finalc
     
