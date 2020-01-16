@@ -17,22 +17,21 @@ from skimage import measure
 class PlateReaderData(object):
     def __init__(self,**kwargs):
 
-        self.__infilenames = kwargs.get("infiles",[])
-        if self.__infilenames is None:
-            raise IOError('No input data provided. Use option -i FILENAME1 [FILENAME2 ...]')
-        self.__ignoresheetsparameter = kwargs.get("ignoresheets",[])
+        self.__infilenames              = kwargs.get("infiles",[])
+        if self.__infilenames is None:    raise IOError('No input data provided. Use option -i FILENAME1 [FILENAME2 ...]')
+        self.__ignoresheetsparameter    = kwargs.get("ignoresheets",[])
+                                        
+        self.__designdata               = list()
+        self.__designtitle              = list()
 
-        self.__designdata = list()
-        self.__designtitle = list()
-
-        self.__data = list()
-        self.__filenames = list()
-        self.__sheetnames = list()
-        self.__designassignment = list()
+        self.__data                     = list()
+        self.__filenames                = list()
+        self.__sheetnames               = list()
+        self.__designassignment         = list()
         
-        self.__rescale = kwargs.get("DataRescale",False)
-        self.__logscale = kwargs.get("DataLogscale",False)
-        self.__logmin  = kwargs.get("DataLogscaleMin",-20)
+        self.__rescale                  = kwargs.get("DataRescale",False)
+        self.__logscale                 = kwargs.get("DataLogscale",False)
+        self.__logmin                   = kwargs.get("DataLogscaleMin",-20)
         
         
         # default positions in Excel-file for data and plate design
@@ -52,9 +51,9 @@ class PlateReaderData(object):
                                             'xwidth':  kwargs.get("d1_xwidth", 12),
                                             'yheight': kwargs.get("d1_yheight", 8) }
         
-        self.__ignoresheets = ['Plate Design*']
+        self.__ignoresheets             =  ['Plate Design*']
         if len(self.__ignoresheetsparameter) > 0:
-            self.__ignoresheets += self.__ignoresheetsparameter
+            self.__ignoresheets        += self.__ignoresheetsparameter
         
         # load all data at __init__()
         if len(self.__infilenames) > 0:
@@ -218,11 +217,43 @@ class PlateReaderData(object):
         
         fp.close()
 
-    def write_3d_array_to_file(self, filename, data, xgrid, ygrid):
+
+    def RelativePosToInoculum(self, position, designID = None, dataID = None):
+        if designID is None:
+            if dataID is None:
+                raise IOError
+            else:
+                design0 = self.__designdata[self.__designassignment[dataID]][0]
+                design1 = self.__designdata[self.__designassignment[dataID]][1]
+        else:
+            design0 = self.__designdata[designID][0]
+            design1 = self.__designdata[designID][1]
+            
+        designshape = np.array(np.shape(design0),dtype = np.float)
+        
+        i = np.array(np.trunc(position * designshape),dtype = np.int)
+        f = position * designshape - i
+        
+        inoc0 = design0[i[0],i[1]]
+        inoc1 = design1[i[0],i[1]]
+        
+        if i[0] < designshape[0] - 1:
+            inoc0 *= np.power(design0[i[0]+1,i[1]]/design0[i[0],i[1]],f[0])
+            inoc1 *= np.power(design1[i[0]+1,i[1]]/design1[i[0],i[1]],f[0])
+        
+        if i[1] < designshape[1] - 1:
+            inoc0 *= np.power(design0[i[0],i[1]+1]/design0[i[0],i[1]],f[1])
+            inoc1 *= np.power(design1[i[0],i[1]+1]/design1[i[0],i[1]],f[1])
+        
+        return np.array([inoc0,inoc1], dtype = np.float)
+        
+        
+    def WriteDataWithDesign(self, filename, data, designID):
         fp = open(filename,'w')
-        for i,x in enumerate(xgrid):
-            for j,y in enumerate(ygrid):
-                fp.write('{} {} {}\n'.format(x,y,data[i,j]))
+        datashape = np.shape(data)
+        for i in range(datashape[0]):
+            for j in range(datashape[1]):
+                fp.write('{} {} {}\n'.format(*self.RelativePosToInoculum(pos = [i/(1.*datashape[0]),j/(1.*datashape[1])],designID = designID),data[i,j]))
             fp.write('\n')
         fp.close()
                          
@@ -277,7 +308,7 @@ class PlateReaderData(object):
 
     def IndexPosition_to_Inoculum(self, dataID, indexpos, gridsize = None):
         # rescale new grid to original 8x12 plates grid
-        gridsize_original = np.shape(self.__designdata[self.__designassignment[dataID]][0])
+        gridsize_original = np.array(np.shape(self.__designdata[self.__designassignment[dataID]][0]))
         if not gridsize is None:
             if isinstance(gridsize,(tuple,list,np.ndarray)):
                 gridsize_output = np.array([gridsize[0],gridsize[1]])
@@ -290,6 +321,10 @@ class PlateReaderData(object):
         else:
             indexpos_original = indexpos
         
+        #print(gridsize_original,gridsize_output)
+        #print(indexpos_original,indexpos)
+        #exit(1)
+
         # get integer and fractional parts of this index
         i                 = np.array(np.trunc(indexpos_original),dtype=int)
         f                 = indexpos_original - i
@@ -312,8 +347,26 @@ class PlateReaderData(object):
         r = np.array([inoc0, inoc1], dtype = np.float)
         return r
 
+    def IndexToInoculum(self, dataID, RelativePosition, axis = 0):
+        designsize = np.shape(self.__designdata[self.__designassignment[dataID]][axis])[axis]
+        i = int(np.trunc(RelativePosition * designsize))
+        f = RelativePosition * designsize - i
+        
+        r = None
 
-    
+    def GetOutGrid(self, designID, gridsize = None):
+        if gridsize is None:
+            return self.__designdata[designID][0],self.__designdata[designID]
+        elif isinstance(gridsize,(list,tuple,np.ndarray)):
+            outshape = np.array([gridsize[0],gridsize[1]],dtype = int)
+        elif isinstance(gridsize,int):
+            outshape = np.array([gridsize,gridsize])
+        else:
+            raise TypeError
+        
+        
+            
+            
     def get_noise_estimates(self,dataID):
         # get rough estimate of noise as variance between neighboring wells on plate
         shape = np.shape(self.__data[dataID])
@@ -356,17 +409,20 @@ class PlateReaderData(object):
 
 
     def compute_growth_nogrowth_transition(self, dataID, threshold = None, geom = True):
-        r = list()
+        
         if threshold is None:
             threshold = self.EstimateGrowthThreshold(dataID)
-        platesize = np.shape(self.__data[dataID])
-        allcont = measure.find_contours(self.__data[dataID],threshold)
-        for cont in allcont:
-            for pos in cont:
-                r.append(self.IndexPosition_to_Inoculum(dataID,pos))
+        
+        platesize         = np.array(np.shape(self.__data[dataID]),dtype=np.float)
+        contour           = measure.find_contours(self.__data[dataID],threshold)
+        
+        threshold_contour = list()
+        for c in contour:
+            for pos in c:
+                threshold_contour.append(self.RelativePosToInoculum(pos/platesize, designID = self.__designassignment[dataID]))
 
-        if len(r) > 0:
-            return np.vstack(r)
+        if len(threshold_contour) > 0:
+            return np.vstack(threshold_contour)
         else:
             return None
 
@@ -375,7 +431,7 @@ class PlateReaderData(object):
     # first get a much finer grid of interpolated data, not just the 8x12 wells on a plate
     # then estimate curve through this surface on fine grid at threshold
     
-    def GaussianProcessRegression(self,dataID,kernellist = ['white','matern'], restarts_optimizer = 10, outputgrid = (20,20), AxesLogScale = True, input_on_indexgrid = False):
+    def GaussianProcessRegression(self,dataID,kernellist = ['white','matern'], restarts_optimizer = 10, outputgrid = (20,20), FitToIndexGrid = False):
         
         if not 'sklgp' in sys.modules:  import sklearn.gaussian_process as sklgp
 
@@ -407,8 +463,6 @@ class PlateReaderData(object):
             klist = [ku.upper() for ku in kernellist if ku.upper() in available_kernels]
             for k in klist:
                 kernel = add_kernel(kernel,k)
-            if not 'WHITE' in klist:
-                kernel = add_design(kernel,'WHITE')
             if not kernel is None:
                 return kernel
             else:
@@ -425,73 +479,67 @@ class PlateReaderData(object):
         else:
             raise TypeError
         
-        input_on_indexgrid = False
-        if input_on_indexgrid:
+        #input_on_indexgrid = False
+        if FitToIndexGrid:
             # (1) either simply as grid of indices
-            # input
+            # input grid
             designgridsize = np.shape(self.__designdata[self.__designassignment[dataID]][0])
             datagrid0      = (np.repeat([np.arange(designgridsize[0], dtype = np.float)], axis = 0, repeats = designgridsize[1])).flatten()
             datagrid1      = (np.repeat([np.arange(designgridsize[1], dtype = np.float)], axis = 0, repeats = designgridsize[0]).T).flatten()
             design         = np.array([[x,y] for x,y in zip(datagrid0,datagrid1)])
             
-            # output
-            grid0          = np.linspace(0, datagrid0[-1], num = outshape[0])
-            grid1          = np.linspace(0, datagrid1[-1], num = outshape[1])
-            grid           = np.array([[x[0],x[1]] for x in itertools.product(grid0,grid1)])
+            # fitting grid
+            fitgrid0       = np.linspace(0, datagrid0[-1], num = outshape[0])
+            fitgrid1       = np.linspace(0, datagrid1[-1], num = outshape[1])
+            fitgr          = np.array([[x[0],x[1]] for x in itertools.product(grid0,grid1)])
+            
             
         else:
             # (2) or on the orignal inoculum data:
             # reformat input data into correct array sizes
-            # input 
+            # input grid
             datagrid0      = self.__designdata[self.__designassignment[dataID]][0].flatten()
             datagrid1      = self.__designdata[self.__designassignment[dataID]][1].flatten()
-            if AxesLogScale:
-                design     = np.array([[np.log(x),np.log(y)] for x,y in zip(datagrid0,datagrid1)])
-            else:
-                design     = np.array([[x,y] for x,y in zip(datagrid0,datagrid1)])
+            design         = np.array([[np.log(x),np.log(y)] for x,y in zip(datagrid0,datagrid1)])
             
-            # output
-            grid0          = np.linspace(np.log(np.min(datagrid0)),np.log(np.max(datagrid0)),num=outputgrid[0])
-            grid1          = np.linspace(np.log(np.min(datagrid1)),np.log(np.max(datagrid1)),num=outputgrid[1])
-            grid           = np.array([[x[0],x[1]] for x in itertools.product(grid0,grid1)])
+            # fitting grid
+            fitgrid0          = np.linspace(np.log(np.min(datagrid0)),np.log(np.max(datagrid0)),num=outputgrid[0])
+            fitgrid1          = np.linspace(np.log(np.min(datagrid1)),np.log(np.max(datagrid1)),num=outputgrid[1])
+            fitgrid           = np.array([[x[0],x[1]] for x in itertools.product(fitgrid0,fitgrid1)])
         
-        # set 'training data' to measurements from plates
-        platedata   = np.array([self.__data[dataID].flatten()]).T
-
         # define kernels for Gaussian Process
         kernel = generate_kernel(kernellist)
         
         # initiate GPR
         gp = sklgp.GaussianProcessRegressor(kernel = kernel, n_restarts_optimizer = restarts_optimizer)
 
+        # set 'training data' to measurements from plates
+        platedata = np.array([self.__data[dataID].flatten()]).T
+
         # estimate hyperparamters for kernels
         gp.fit(design,platedata)
         
         # use GPR to estimate values on (fine) grid
-        platedata_prediction = gp.predict(grid)
+        platedata_prediction = gp.predict(fitgrid)
         
-        if AxesLogScale and not input_on_indexgrid:
-            return np.exp(grid0), np.exp(grid1), platedata_prediction.reshape(outshape)
-        else:
-            return grid0, grid1, platedata_prediction.reshape(outshape)
+        return platedata_prediction.reshape(outshape)
     
 
-    def compute_growth_nogrowth_transition_GPR(self,dataID,threshold,gridsize = 20, kernellist = ['white','matern'], SaveGPRSurfaceToFile = False, FitToIndexGrid = False):
-        grid0,grid1,pdpred = self.GaussianProcessRegression(dataID,outputgrid = (gridsize,gridsize), kernellist = kernellist, input_on_indexgrid = FitToIndexGrid)
-        contours           = measure.find_contours(pdpred,threshold)
+    def compute_growth_nogrowth_transition_GPR(self, dataID, threshold, gridsize = 20, kernellist = ['white','matern'], SaveGPRSurfaceToFile = False, FitToIndexGrid = False):
+        pdpred   = self.GaussianProcessRegression(dataID, outputgrid = (gridsize,gridsize), kernellist = kernellist, FitToIndexGrid = FitToIndexGrid)
+        contours = measure.find_contours(pdpred, threshold)
         
         if SaveGPRSurfaceToFile:
             filename = self.titles[dataID].replace(' ','_') + '.gprsurface'
-            self.write_3d_array_to_file(filename, data = pdpred, xgrid = grid0, ygrid = grid1)
+            self.WriteArrayWithDesign(filename, data = pdpred, designID = self.__designassignment[dataID])
         
-        finalc    = list()
+        threshold_contour = list()
         for c in contours:
             for pos in c:
-                if FitToIndexGrid:
-                    pos = self.IndexPosition_to_Inoculum(dataID, pos, gridsize = (gridsize,gridsize))
-                finalc.append(pos)
-        finalc = np.vstack(finalc)
-        return finalc
+                threshold_contour.append(self.RelativePosToInoculum(pos, designID = self.__designassignment[dataID]))
+
+        threshold_contour = np.vstack(threshold_contour)
+        return threshold_contour
     
     
 
