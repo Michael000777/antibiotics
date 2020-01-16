@@ -253,7 +253,7 @@ class PlateReaderData(object):
         datashape = np.shape(data)
         for i in range(datashape[0]):
             for j in range(datashape[1]):
-                fp.write('{} {} {}\n'.format(*self.RelativePosToInoculum(pos = [i/(1.*datashape[0]),j/(1.*datashape[1])],designID = designID),data[i,j]))
+                fp.write('{} {} {}\n'.format(*self.RelativePosToInoculum(position = [i/(1.*datashape[0]),j/(1.*datashape[1])],designID = designID),data[i,j]))
             fp.write('\n')
         fp.close()
                          
@@ -419,7 +419,7 @@ class PlateReaderData(object):
         threshold_contour = list()
         for c in contour:
             for pos in c:
-                threshold_contour.append(self.RelativePosToInoculum(pos/platesize, designID = self.__designassignment[dataID]))
+                threshold_contour.append(self.RelativePosToInoculum(position = pos/platesize, designID = self.__designassignment[dataID]))
 
         if len(threshold_contour) > 0:
             return np.vstack(threshold_contour)
@@ -526,17 +526,18 @@ class PlateReaderData(object):
     
 
     def compute_growth_nogrowth_transition_GPR(self, dataID, threshold, gridsize = 20, kernellist = ['white','matern'], SaveGPRSurfaceToFile = False, FitToIndexGrid = False):
-        pdpred   = self.GaussianProcessRegression(dataID, outputgrid = (gridsize,gridsize), kernellist = kernellist, FitToIndexGrid = FitToIndexGrid)
-        contours = measure.find_contours(pdpred, threshold)
+        outgridsize = (gridsize,gridsize)
+        pdpred      = self.GaussianProcessRegression(dataID, outputgrid = outgridsize, kernellist = kernellist, FitToIndexGrid = FitToIndexGrid)
+        contours    = measure.find_contours(pdpred, threshold)
         
         if SaveGPRSurfaceToFile:
             filename = self.titles[dataID].replace(' ','_') + '.gprsurface'
-            self.WriteArrayWithDesign(filename, data = pdpred, designID = self.__designassignment[dataID])
+            self.WriteDataWithDesign(filename, data = pdpred, designID = self.__designassignment[dataID])
         
         threshold_contour = list()
         for c in contours:
             for pos in c:
-                threshold_contour.append(self.RelativePosToInoculum(pos, designID = self.__designassignment[dataID]))
+                threshold_contour.append(self.RelativePosToInoculum(position = pos/outgridsize, designID = self.__designassignment[dataID]))
 
         threshold_contour = np.vstack(threshold_contour)
         return threshold_contour
