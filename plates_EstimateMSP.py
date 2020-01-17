@@ -198,8 +198,7 @@ def main():
             prc.PlateImage(data[i], data.titles[i], growththreshold = threshold)
     
         if args.WriteDataFiles:
-            outfilename = basename + '.data'
-            data.write_data_to_file(i,outfilename)
+            data.WriteData(dataID = i, filename = basename + '.data')
             
     return results
 

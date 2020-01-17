@@ -197,15 +197,12 @@ class PlateReaderData(object):
             PlateImage(self.__data[i], outfilename = self.__sheetnames)
 
 
-    def write_data_to_file(self,dataID,filename = 'out',include_error_estimates = False):
+    def WriteData(self, dataID, filename = 'out'):
         xlist = self.__designdata[self.__designassignment[dataID]][0]
         ylist = self.__designdata[self.__designassignment[dataID]][1]
         zlist = self.__data[dataID]
-        if include_error_estimates:
-            elist = self.get_noise_estimates(dataID)
-        s = np.shape(zlist)
-        
-        fp = open(filename,'w')
+        s     = np.shape(zlist)
+        fp    = open(filename,'w')
         
         for i in range(s[0]):
             for j in range(s[1]):
@@ -248,7 +245,7 @@ class PlateReaderData(object):
         return np.array([inoc0,inoc1], dtype = np.float)
         
         
-    def WriteDataWithDesign(self, filename, data, designID):
+    def WriteArrayWithDesign(self, filename, data, designID):
         fp = open(filename,'w')
         datashape = np.shape(data)
         for i in range(datashape[0]):
@@ -305,68 +302,6 @@ class PlateReaderData(object):
             return sx[idx]
 
 
-
-    def IndexPosition_to_Inoculum(self, dataID, indexpos, gridsize = None):
-        # rescale new grid to original 8x12 plates grid
-        gridsize_original = np.array(np.shape(self.__designdata[self.__designassignment[dataID]][0]))
-        if not gridsize is None:
-            if isinstance(gridsize,(tuple,list,np.ndarray)):
-                gridsize_output = np.array([gridsize[0],gridsize[1]])
-            elif isinstance(gridsize,int):
-                gridsize_output = np.array([gridsize,gridsize])
-            else:
-                raise TypeError
-            
-            indexpos_original = indexpos * gridsize_original/gridsize_output
-        else:
-            indexpos_original = indexpos
-        
-        #print(gridsize_original,gridsize_output)
-        #print(indexpos_original,indexpos)
-        #exit(1)
-
-        # get integer and fractional parts of this index
-        i                 = np.array(np.trunc(indexpos_original),dtype=int)
-        f                 = indexpos_original - i
-        design0           = self.__designdata[self.__designassignment[dataID]][0]
-        design1           = self.__designdata[self.__designassignment[dataID]][1]
-
-        # startvalues from one endpoint of the grid 
-        inoc0             = design0[i[0],i[1]]
-        inoc1             = design1[i[0],i[1]]
-
-        # interpolate with logarithmic scale
-        if i[0]+1 < gridsize_original[0]:
-            inoc0        *= np.power(design0[i[0]+1,i[1]]/design0[i[0],i[1]],f[0])
-            inoc1        *= np.power(design1[i[0]+1,i[1]]/design1[i[0],i[1]],f[0])
-        
-        if i[1]+1 < gridsize_original[1]:
-            inoc0        *= np.power(design0[i[0],i[1]+1]/design0[i[0],i[1]],f[1])
-            inoc1        *= np.power(design1[i[0],i[1]+1]/design1[i[0],i[1]],f[1])
-
-        r = np.array([inoc0, inoc1], dtype = np.float)
-        return r
-
-    def IndexToInoculum(self, dataID, RelativePosition, axis = 0):
-        designsize = np.shape(self.__designdata[self.__designassignment[dataID]][axis])[axis]
-        i = int(np.trunc(RelativePosition * designsize))
-        f = RelativePosition * designsize - i
-        
-        r = None
-
-    def GetOutGrid(self, designID, gridsize = None):
-        if gridsize is None:
-            return self.__designdata[designID][0],self.__designdata[designID]
-        elif isinstance(gridsize,(list,tuple,np.ndarray)):
-            outshape = np.array([gridsize[0],gridsize[1]],dtype = int)
-        elif isinstance(gridsize,int):
-            outshape = np.array([gridsize,gridsize])
-        else:
-            raise TypeError
-        
-        
-            
-            
     def get_noise_estimates(self,dataID):
         # get rough estimate of noise as variance between neighboring wells on plate
         shape = np.shape(self.__data[dataID])
@@ -400,12 +335,13 @@ class PlateReaderData(object):
     # copmute transitions between growth and no-growth with various methods #
     #########################################################################
 
-    def transitions(self,threshold,useGPR = False):
-        if useGPR:
+    def transitions(self,threshold = None, useGPR = False):
+        if threshold is None:
             threshold = self.EstimateGrowthThreshold(dataID = None)
-            return [(self.__filenames[i],self.__sheetnames[i],self.compute_growth_nogrowth_transition_GPR(i,threshold)) for i in range(len(self.__data))]
+        if useGPR:
+            return [(self.__filenames[i], self.__sheetnames[i], self.compute_growth_nogrowth_transition_GPR(i,threshold)) for i in range(len(self.__data))]
         else:
-            return [(self.__filenames[i],self.__sheetnames[i],self.compute_growth_nogrowth_transition(i,threshold)) for i in range(len(self.__data))]
+            return [(self.__filenames[i], self.__sheetnames[i], self.compute_growth_nogrowth_transition(i,threshold)) for i in range(len(self.__data))]
 
 
     def compute_growth_nogrowth_transition(self, dataID, threshold = None, geom = True):
@@ -525,7 +461,11 @@ class PlateReaderData(object):
         return platedata_prediction.reshape(outshape)
     
 
-    def compute_growth_nogrowth_transition_GPR(self, dataID, threshold, gridsize = 20, kernellist = ['white','matern'], SaveGPRSurfaceToFile = False, FitToIndexGrid = False):
+    def compute_growth_nogrowth_transition_GPR(self, dataID, threshold = None, gridsize = 20, kernellist = ['white','matern'], SaveGPRSurfaceToFile = False, FitToIndexGrid = False):
+        
+        if threshold is None:
+            threshold = self.EstimateGrowthThreshold(dataID = None)
+        
         outgridsize = (gridsize,gridsize)
         pdpred      = self.GaussianProcessRegression(dataID, outputgrid = outgridsize, kernellist = kernellist, FitToIndexGrid = FitToIndexGrid)
         contours    = measure.find_contours(pdpred, threshold)
