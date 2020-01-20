@@ -197,7 +197,7 @@ class PlateReaderData(object):
             PlateImage(self.__data[i], outfilename = self.__sheetnames)
 
 
-    def WriteData(self, dataID, filename = 'out'):
+    def WriteData(self, dataID, filename = 'out', include_error_estimates = False):
         xlist = self.__designdata[self.__designassignment[dataID]][0]
         ylist = self.__designdata[self.__designassignment[dataID]][1]
         zlist = self.__data[dataID]
@@ -472,7 +472,7 @@ class PlateReaderData(object):
         
         if SaveGPRSurfaceToFile:
             filename = self.titles[dataID].replace(' ','_') + '.gprsurface'
-            self.WriteDataWithDesign(filename, data = pdpred, designID = self.__designassignment[dataID])
+            self.WriteArrayWithDesign(filename, data = pdpred, designID = self.__designassignment[dataID])
         
         threshold_contour = list()
         for c in contours:
