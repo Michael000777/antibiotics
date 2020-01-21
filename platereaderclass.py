@@ -250,7 +250,7 @@ class PlateReaderData(object):
         datashape = np.shape(data)
         for i in range(datashape[0]):
             for j in range(datashape[1]):
-                fp.write('{} {} {}\n'.format(*self.RelativePosToInoculum(position = [i/(1.*datashape[0]),j/(1.*datashape[1])],designID = designID),data[i,j]))
+                fp.write('{:.6e} {:.6e} {:.6e}\n'.format(*self.RelativePosToInoculum(position = [i/(1.*datashape[0]),j/(1.*datashape[1])],designID = designID),data[i,j]))
             fp.write('\n')
         fp.close()
                          
@@ -461,7 +461,7 @@ class PlateReaderData(object):
         return platedata_prediction.reshape(outshape)
     
 
-    def compute_growth_nogrowth_transition_GPR(self, dataID, threshold = None, gridsize = 20, kernellist = ['white','matern'], SaveGPRSurfaceToFile = False, FitToIndexGrid = False):
+    def compute_growth_nogrowth_transition_GPR(self, dataID, threshold = None, gridsize = 24, kernellist = ['white','matern'], SaveGPRSurfaceToFile = False, FitToIndexGrid = False):
         
         if threshold is None:
             threshold = self.EstimateGrowthThreshold(dataID = None)
