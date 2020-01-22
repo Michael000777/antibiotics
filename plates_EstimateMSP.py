@@ -137,9 +137,10 @@ def main():
     parser_alg.add_argument("-t", "--GrowthThreshold",           default = None,  type = float)
     parser_alg.add_argument("-D", "--DesignAssignment",          default = [],    type = int, nargs = "*")
     parser_alg.add_argument("-d", "--GenerateDesign",            default = [6e6,4,6.25,2], nargs = 4, type = int)
-    parser_alg.add_argument("-R", "--GaussianProcessRegression", default = None, action = "store_true")
+    parser_alg.add_argument("-R", "--GaussianProcessRegression", default = False, action = "store_true")
     parser_alg.add_argument("-n", "--GPRGridsize",               default = 24,    type = int)
     parser_alg.add_argument("-K", "--GPRKernellist",             default = ['white','matern'], type = str, nargs = "*")
+    parser_alg.add_argument("-X", "--GPRFitToIndexGrid",         default = False, action = "store_true")
     
     args = parser.parse_args()
     
@@ -167,7 +168,7 @@ def main():
     print('{:30s}  '.format('# Title') + '  '.join(['{:>14.14s}'.format(c) for c in columnlist[2:]]))
 
     for i in range(len(data)):
-        if args.GaussianProcessRegression:  transitions = data.compute_growth_nogrowth_transition_GPR(i, threshold, gridsize = args.GPRGridsize, kernellist = args.GPRKernellist, SaveGPRSurfaceToFile = args.WriteDataFiles)
+        if args.GaussianProcessRegression:  transitions = data.compute_growth_nogrowth_transition_GPR(i, threshold, gridsize = args.GPRGridsize, kernellist = args.GPRKernellist, SaveGPRSurfaceToFile = args.WriteDataFiles, FitToIndexGrid = args.GPRFitToIndexGrid)
         else:                               transitions = data.compute_growth_nogrowth_transition    (i, threshold)
         
         curdata             = dict()
