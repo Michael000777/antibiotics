@@ -9,6 +9,12 @@ import itertools
 
 from skimage import measure
 
+# getting rid of deprecation warning in sklearn
+try:
+    from collections import Sequence
+except:
+    from collections.abc import Sequence
+
 ## loaded upon chosing output format below
 #import cairo
 #import svgwrite
@@ -225,20 +231,20 @@ class PlateReaderData(object):
         else:
             design0 = self.__designdata[designID][0]
             design1 = self.__designdata[designID][1]
-            
-        designshape = np.array(np.shape(design0),dtype = np.float)
         
-        i = np.array(np.trunc(position * designshape),dtype = np.int)
-        f = position * designshape - i
+        designsize = np.array(np.shape(design0),dtype = np.float) - np.ones(2)
+        
+        i = np.array(np.trunc(position * designsize),dtype = np.int)
+        f = position * designsize - i
         
         inoc0 = design0[i[0],i[1]]
         inoc1 = design1[i[0],i[1]]
         
-        if i[0] < designshape[0] - 1:
+        if i[0] < designsize[0]:
             inoc0 *= np.power(design0[i[0]+1,i[1]]/design0[i[0],i[1]],f[0])
             inoc1 *= np.power(design1[i[0]+1,i[1]]/design1[i[0],i[1]],f[0])
         
-        if i[1] < designshape[1] - 1:
+        if i[1] < designsize[1]:
             inoc0 *= np.power(design0[i[0],i[1]+1]/design0[i[0],i[1]],f[1])
             inoc1 *= np.power(design1[i[0],i[1]+1]/design1[i[0],i[1]],f[1])
         
@@ -250,7 +256,7 @@ class PlateReaderData(object):
         datashape = np.shape(data)
         for i in range(datashape[0]):
             for j in range(datashape[1]):
-                fp.write('{:.6e} {:.6e} {:.6e}\n'.format(*self.RelativePosToInoculum(position = [i/(1.*datashape[0]),j/(1.*datashape[1])],designID = designID),data[i,j]))
+                fp.write('{:.6e} {:.6e} {:.6e}\n'.format(*self.RelativePosToInoculum(position = [i/(1.*datashape[0]-1),j/(1.*datashape[1]-1)],designID = designID),data[i,j]))
             fp.write('\n')
         fp.close()
                          
@@ -415,33 +421,36 @@ class PlateReaderData(object):
         else:
             raise TypeError
         
+        designshape = np.shape(self.__designdata[self.__designassignment[dataID]][0])
+        fitshape    = (designshape[0] * designshape[1],1)
+        predshape   = (outshape[0] * outshape[1],1)
+        
         #input_on_indexgrid = False
         if FitToIndexGrid:
             # (1) either simply as grid of indices
             # input grid
-            designgridsize = np.shape(self.__designdata[self.__designassignment[dataID]][0])
-            datagrid0      = (np.repeat([np.arange(designgridsize[0], dtype = np.float)], axis = 0, repeats = designgridsize[1])).flatten()
-            datagrid1      = (np.repeat([np.arange(designgridsize[1], dtype = np.float)], axis = 0, repeats = designgridsize[0]).T).flatten()
+            datagrid0      = (np.repeat([np.arange(designshape[0], dtype = np.float)], axis = 0, repeats = designshape[1])).reshape(fitshape)[:,0]
+            datagrid1      = (np.repeat([np.arange(designshape[1], dtype = np.float)], axis = 0, repeats = designshape[0]).T).reshape(fitshape)[:,0]
             design         = np.array([[x,y] for x,y in zip(datagrid0,datagrid1)])
             
             # fitting grid
-            fitgrid0       = np.linspace(0, datagrid0[-1], num = outshape[0])
-            fitgrid1       = np.linspace(0, datagrid1[-1], num = outshape[1])
-            fitgr          = np.array([[x[0],x[1]] for x in itertools.product(grid0,grid1)])
+            fitgrid0       = (np.repeat([np.linspace(0, datagrid0[-1], num = outshape[0])], axis = 0, repeats = outshape[1])).reshape(predshape)[:,0]
+            fitgrid1       = (np.repeat([np.linspace(0, datagrid1[-1], num = outshape[1])], axis = 0, repeats = outshape[0]).T).reshape(predshape)[:,0]
+            fitgr          = np.array([[x,y] for x,y in zip(fitgrid0,fitgrid1)])
             
             
         else:
             # (2) or on the orignal inoculum data:
             # reformat input data into correct array sizes
             # input grid
-            datagrid0      = self.__designdata[self.__designassignment[dataID]][0].flatten()
-            datagrid1      = self.__designdata[self.__designassignment[dataID]][1].flatten()
+            datagrid0      = self.__designdata[self.__designassignment[dataID]][0].reshape(fitshape)[:,0]
+            datagrid1      = self.__designdata[self.__designassignment[dataID]][1].reshape(fitshape)[:,0]
             design         = np.array([[np.log(x),np.log(y)] for x,y in zip(datagrid0,datagrid1)])
             
             # fitting grid
-            fitgrid0          = np.linspace(np.log(np.min(datagrid0)),np.log(np.max(datagrid0)),num=outputgrid[0])
-            fitgrid1          = np.linspace(np.log(np.min(datagrid1)),np.log(np.max(datagrid1)),num=outputgrid[1])
-            fitgrid           = np.array([[x[0],x[1]] for x in itertools.product(fitgrid0,fitgrid1)])
+            fitgrid0          = (np.repeat([np.linspace(np.log(datagrid0[0]), np.log(datagrid0[-1]), num = outshape[0])], axis = 0, repeats = outshape[1])).reshape(predshape)[:,0]
+            fitgrid1          = (np.repeat([np.linspace(np.log(datagrid1[0]), np.log(datagrid1[-1]), num = outshape[1])], axis = 0, repeats = outshape[0]).T).reshape(predshape)[:,0]
+            fitgrid           = np.array([[x,y] for x,y in zip(fitgrid0,fitgrid1)])
         
         # define kernels for Gaussian Process
         kernel = generate_kernel(kernellist)
@@ -450,7 +459,7 @@ class PlateReaderData(object):
         gp = sklgp.GaussianProcessRegressor(kernel = kernel, n_restarts_optimizer = restarts_optimizer)
 
         # set 'training data' to measurements from plates
-        platedata = np.array([self.__data[dataID].flatten()]).T
+        platedata = np.reshape(self.__data[dataID],fitshape)
 
         # estimate hyperparamters for kernels
         gp.fit(design,platedata)
@@ -458,7 +467,7 @@ class PlateReaderData(object):
         # use GPR to estimate values on (fine) grid
         platedata_prediction = gp.predict(fitgrid)
         
-        return platedata_prediction.reshape(outshape)
+        return platedata_prediction.reshape(outshape, order = 'A')
     
 
     def compute_growth_nogrowth_transition_GPR(self, dataID, threshold = None, gridsize = 24, kernellist = ['white','matern'], SaveGPRSurfaceToFile = False, FitToIndexGrid = False):
