@@ -166,6 +166,7 @@ def main():
     results = pd.DataFrame(columns = columnlist)
 
     print('{:30s}  '.format('# Title') + '  '.join(['{:>14.14s}'.format(c) for c in columnlist[2:]]))
+    print('# Growth/No-Growth threshold: {:.6f}'.format(threshold))
 
     for i in range(len(data)):
         if args.GaussianProcessRegression:  transitions = data.compute_growth_nogrowth_transition_GPR(i, threshold, gridsize = args.GPRGridsize, kernellist = args.GPRKernellist, SaveGPRSurfaceToFile = args.WriteDataFiles, FitToIndexGrid = args.GPRFitToIndexGrid)

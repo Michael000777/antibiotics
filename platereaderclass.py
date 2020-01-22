@@ -425,7 +425,6 @@ class PlateReaderData(object):
         fitshape    = (designshape[0] * designshape[1],1)
         predshape   = (outshape[0] * outshape[1],1)
         
-        #input_on_indexgrid = False
         if FitToIndexGrid:
             # (1) either simply as grid of indices
             # input grid
