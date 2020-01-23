@@ -355,13 +355,13 @@ class PlateReaderData(object):
         if threshold is None:
             threshold = self.EstimateGrowthThreshold(dataID)
         
-        platesize         = np.array(np.shape(self.__data[dataID]),dtype=np.float)
+        platesize_m1      = np.array(np.shape(self.__data[dataID]),dtype=np.float) - np.ones(2)
         contour           = measure.find_contours(self.__data[dataID],threshold)
         
         threshold_contour = list()
         for c in contour:
             for pos in c:
-                threshold_contour.append(self.RelativePosToInoculum(position = pos/platesize, designID = self.__designassignment[dataID]))
+                threshold_contour.append(self.RelativePosToInoculum(position = pos/platesize_m1, designID = self.__designassignment[dataID]))
 
         if len(threshold_contour) > 0:
             return np.vstack(threshold_contour)
@@ -472,11 +472,12 @@ class PlateReaderData(object):
     def compute_growth_nogrowth_transition_GPR(self, dataID, threshold = None, gridsize = 24, kernellist = ['white','matern'], SaveGPRSurfaceToFile = False, FitToIndexGrid = False):
         
         if threshold is None:
-            threshold = self.EstimateGrowthThreshold(dataID = None)
+            threshold  = self.EstimateGrowthThreshold(dataID = None)
         
-        outgridsize = (gridsize,gridsize)
-        pdpred      = self.GaussianProcessRegression(dataID, outputgrid = outgridsize, kernellist = kernellist, FitToIndexGrid = FitToIndexGrid)
-        contours    = measure.find_contours(pdpred, threshold)
+        outgridsize    = (gridsize,gridsize)
+        outgridsize_m1 = np.array(outgridsize) - np.ones(2)
+        pdpred         = self.GaussianProcessRegression(dataID, outputgrid = outgridsize, kernellist = kernellist, FitToIndexGrid = FitToIndexGrid)
+        contours       = measure.find_contours(pdpred, threshold)
         
         if SaveGPRSurfaceToFile:
             filename = self.titles[dataID].replace(' ','_') + '.gprsurface'
@@ -485,7 +486,7 @@ class PlateReaderData(object):
         threshold_contour = list()
         for c in contours:
             for pos in c:
-                threshold_contour.append(self.RelativePosToInoculum(position = pos/outgridsize, designID = self.__designassignment[dataID]))
+                threshold_contour.append(self.RelativePosToInoculum(position = pos/outgridsize_m1, designID = self.__designassignment[dataID]))
 
         threshold_contour = np.vstack(threshold_contour)
         return threshold_contour
