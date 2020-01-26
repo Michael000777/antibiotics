@@ -141,6 +141,7 @@ def main():
     parser_alg.add_argument("-n", "--GPRGridsize",               default = 24,    type = int)
     parser_alg.add_argument("-K", "--GPRKernellist",             default = ['white','matern'], type = str, nargs = "*")
     parser_alg.add_argument("-x", "--GPRFitToIndexGrid",         default = False, action = "store_true")
+    parser_alg.add_argument("-B", "--UseBinarizedData",          default = False, action = "store_true")
     
     args = parser.parse_args()
     

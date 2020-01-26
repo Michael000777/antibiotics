@@ -62,8 +62,10 @@ class PlateReaderData(object):
             self.__ignoresheets        += self.__ignoresheetsparameter
 
         # set threshold to not yet computed
-        self.__threshold                = None
         self.__UseBinarizedData         = kwargs.get('UseBinarizedData',False)
+        self.__threshold                = None
+        if self.__UseBinarizedData:
+            self.__theshold = 0.5
         
         # load all data at __init__()
         if len(self.__infilenames) > 0:
