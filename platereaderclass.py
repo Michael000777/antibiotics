@@ -60,6 +60,10 @@ class PlateReaderData(object):
         self.__ignoresheets             =  ['Plate Design*']
         if len(self.__ignoresheetsparameter) > 0:
             self.__ignoresheets        += self.__ignoresheetsparameter
+
+        # set threshold to not yet computed
+        self.__threshold                = None
+        self.__UseBinarizedData         = kwargs.get('UseBinarizedData',False)
         
         # load all data at __init__()
         if len(self.__infilenames) > 0:
@@ -200,13 +204,13 @@ class PlateReaderData(object):
 
     def Export_All_PNGs(self):
         for i in range(self.count):
-            PlateImage(self.__data[i], outfilename = self.__sheetnames)
+            PlateImage(self[i], outfilename = self.__sheetnames)
 
 
     def WriteData(self, dataID, filename = 'out', include_error_estimates = False):
         xlist = self.__designdata[self.__designassignment[dataID]][0]
         ylist = self.__designdata[self.__designassignment[dataID]][1]
-        zlist = self.__data[dataID]
+        zlist = self[dataID]
         s     = np.shape(zlist)
         fp    = open(filename,'w')
         
@@ -308,32 +312,47 @@ class PlateReaderData(object):
             return sx[idx]
 
 
+    def ComputeThreshold(self):
+        self.__threshold = self.EstimateGrowthThreshold(dataID = None)
+
+
     def get_noise_estimates(self,dataID):
         # get rough estimate of noise as variance between neighboring wells on plate
-        shape = np.shape(self.__data[dataID])
+        shape = np.shape(self[dataID])
         ne = np.zeros(shape)
 
         #corners
-        ne[0,0]                   = np.std(self.__data[dataID][:2,:2])
-        ne[0,shape[1]-1]          = np.std(self.__data[dataID][:2:,-2:])
-        ne[shape[0]-1,0]          = np.std(self.__data[dataID][-2:,:2])
-        ne[shape[0]-1,shape[1]-1] = np.std(self.__data[dataID][-2:,-2:])
+        ne[0,0]                   = np.std(self[dataID][:2,:2])
+        ne[0,shape[1]-1]          = np.std(self[dataID][:2:,-2:])
+        ne[shape[0]-1,0]          = np.std(self[dataID][-2:,:2])
+        ne[shape[0]-1,shape[1]-1] = np.std(self[dataID][-2:,-2:])
 
         # edges
         for i in range(1,shape[0]-1):
-            ne[i,0]               = np.std(self.__data[dataID][i-1:i+1,:2])
-            ne[i,shape[1]-1]      = np.std(self.__data[dataID][i-1:i+1,-2:])
+            ne[i,0]               = np.std(self[dataID][i-1:i+1,:2])
+            ne[i,shape[1]-1]      = np.std(self[dataID][i-1:i+1,-2:])
         
         # edges
         for j in range(1,shape[1]-1):
-            ne[0,j]               = np.std(self.__data[dataID][:2,j-1:j+1])
-            ne[shape[0]-1,j]      = np.std(self.__data[dataID][-2:,j-1:j+1])
+            ne[0,j]               = np.std(self[dataID][:2,j-1:j+1])
+            ne[shape[0]-1,j]      = np.std(self[dataID][-2:,j-1:j+1])
             
             # bulk
             for i in range(1,shape[0]-1):
-                ne[i,j]           = np.std(self.__data[dataID][i-1:i+1,j-1:j+1])
+                ne[i,j]           = np.std(self[dataID][i-1:i+1,j-1:j+1])
         
         return ne
+
+
+
+
+    def BinarizedData(self, dataID, threshold = None):
+        if threshold is None:
+            if self.__threshold is None:
+                threshold = self.EstimateGrowthThreshold()
+            else:
+                threshold = self.__threshold
+        return np.where(self.__data[dataID] < threshold, 0, 1)
 
 
 
@@ -343,7 +362,10 @@ class PlateReaderData(object):
 
     def transitions(self,threshold = None, useGPR = False):
         if threshold is None:
-            threshold = self.EstimateGrowthThreshold(dataID = None)
+            if self.__threshold is None:
+                threshold = self.EstimateGrowthThreshold(dataID = None)
+            else:
+                threshold = self.__threshold
         if useGPR:
             return [(self.__filenames[i], self.__sheetnames[i], self.compute_growth_nogrowth_transition_GPR(i,threshold)) for i in range(len(self.__data))]
         else:
@@ -353,10 +375,13 @@ class PlateReaderData(object):
     def compute_growth_nogrowth_transition(self, dataID, threshold = None, geom = True):
         
         if threshold is None:
-            threshold = self.EstimateGrowthThreshold(dataID)
-        
-        platesize_m1      = np.array(np.shape(self.__data[dataID]),dtype=np.float) - np.ones(2)
-        contour           = measure.find_contours(self.__data[dataID],threshold)
+            if self.__threshold is None:
+                threshold = self.EstimateGrowthThreshold(dataID)
+            else:
+                threshold = self.__threshold
+                
+        platesize_m1      = np.array(np.shape(self[dataID]),dtype=np.float) - np.ones(2)
+        contour           = measure.find_contours(self[dataID],threshold)
         
         threshold_contour = list()
         for c in contour:
@@ -458,7 +483,7 @@ class PlateReaderData(object):
         gp = sklgp.GaussianProcessRegressor(kernel = kernel, n_restarts_optimizer = restarts_optimizer)
 
         # set 'training data' to measurements from plates
-        platedata = np.reshape(self.__data[dataID],fitshape)
+        platedata = np.reshape(self[dataID],fitshape)
 
         # estimate hyperparamters for kernels
         gp.fit(design,platedata)
@@ -497,10 +522,12 @@ class PlateReaderData(object):
     # python stuff #
     ################
     
-    def __iter__(self):
-        for fn,title,platedata,designassignment in zip(self.__filenames,self.__sheetnames,self.__data,self.__designassignment):
-            yield fn,title,self.rescale(platedata),designassignment
-    
+    def __getitem__(self,key):
+        if self.__UseBinarizedData:
+            return self.BinarizedData(dataID = key)
+        else:
+            return self.__data[key]
+
     
     def __int__(self):
         return len(self.__data)
@@ -508,8 +535,13 @@ class PlateReaderData(object):
 
     def __len__(self):
         return len(self.__data)
-
     
+    
+    def __iter__(self):
+        for i in range(len(self)):
+            yield self.__filenames[i], self.__sheetnames[i], self[i], self.__designassignment[i]
+
+
     def __getattr__(self,key):
         # access internal variables only via __iter__ method!
         if key == "count":
@@ -525,9 +557,6 @@ class PlateReaderData(object):
         elif key == "designassignment":
             return self.__designassignment
     
-    
-    def __getitem__(self,key):
-        return self.__data[key]
 
 
 
