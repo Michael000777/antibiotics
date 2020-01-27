@@ -498,6 +498,8 @@ class PlateReaderData(object):
 
     def compute_growth_nogrowth_transition_GPR(self, dataID, threshold = None, gridsize = 24, kernellist = ['white','matern'], SaveGPRSurfaceToFile = False, FitToIndexGrid = False):
         
+        if self.__UseBinarizedData:
+            threshold = 0.5
         if threshold is None:
             threshold  = self.EstimateGrowthThreshold(dataID = None)
         
@@ -505,7 +507,8 @@ class PlateReaderData(object):
         outgridsize_m1 = np.array(outgridsize) - np.ones(2)
         pdpred         = self.GaussianProcessRegression(dataID, outputgrid = outgridsize, kernellist = kernellist, FitToIndexGrid = FitToIndexGrid)
         contours       = measure.find_contours(pdpred, threshold)
-        
+
+
         if SaveGPRSurfaceToFile:
             filename = self.titles[dataID].replace(' ','_') + '.gprsurface'
             self.WriteArrayWithDesign(filename, data = pdpred, designID = self.__designassignment[dataID])
@@ -558,7 +561,13 @@ class PlateReaderData(object):
             return np.concatenate([x.flatten() for x in self.__data])
         elif key == "designassignment":
             return self.__designassignment
-    
+        elif key == "threshold":
+            if self.__theshold is None:
+                if self.__UseBinarizedData:
+                    self.__theshold = 0.5
+                else:
+                    self.ComputeThreshold()
+            return self.__threshold
 
 
 
