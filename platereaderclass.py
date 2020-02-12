@@ -379,7 +379,7 @@ class PlateReaderData(object):
             return [(self.__filenames[i], self.__sheetnames[i], self.compute_growth_nogrowth_transition(i,threshold)) for i in range(len(self.__data))]
 
 
-    def compute_growth_nogrowth_transition(self, dataID, threshold = None, geom = True):
+    def compute_growth_nogrowth_transition(self, dataID, threshold = None, geom = True, onlyLongest = True):
         
         if threshold is None:
             if self.__threshold is None:
@@ -388,12 +388,14 @@ class PlateReaderData(object):
                 threshold = self.__threshold
                 
         platesize_m1      = np.array(np.shape(self[dataID]),dtype=np.float) - np.ones(2)
-        contour           = measure.find_contours(self[dataID],threshold)
+        contours          = measure.find_contours(self[dataID],threshold)
         
         threshold_contour = list()
-        for c in contour:
-            for pos in c:
-                threshold_contour.append(self.RelativePosToInoculum(position = pos/platesize_m1, designID = self.__designassignment[dataID]))
+        contour_length    = np.array([len(c) for c in contours],dtype = np.int)
+        for i,c in enumerate(contours):
+            if i == contour_length.argmax() or not onlyLongest:
+                for pos in c:
+                    threshold_contour.append(self.RelativePosToInoculum(position = pos/platesize_m1, designID = self.__designassignment[dataID]))
 
         if len(threshold_contour) > 0:
             return np.vstack(threshold_contour)
@@ -501,7 +503,7 @@ class PlateReaderData(object):
         return platedata_prediction.reshape(outshape, order = 'A')
     
 
-    def compute_growth_nogrowth_transition_GPR(self, dataID, threshold = None, gridsize = 24, kernellist = ['white','matern'], SaveGPRSurfaceToFile = False, FitToIndexGrid = False):
+    def compute_growth_nogrowth_transition_GPR(self, dataID, threshold = None, gridsize = 24, kernellist = ['white','matern'], SaveGPRSurfaceToFile = False, FitToIndexGrid = False, onlyLongest = True):
         
         if self.__UseBinarizedData:
             threshold = 0.5
@@ -519,9 +521,11 @@ class PlateReaderData(object):
             self.WriteArrayWithDesign(filename, data = pdpred, designID = self.__designassignment[dataID])
         
         threshold_contour = list()
-        for c in contours:
-            for pos in c:
-                threshold_contour.append(self.RelativePosToInoculum(position = pos/outgridsize_m1, designID = self.__designassignment[dataID]))
+        contour_length    = np.array([len(c) for c in contours],dtype = np.int)
+        for i,c in enumerate(contours):
+            if i == contour_length.argmax() or not onlyLongest:
+                for pos in c:
+                    threshold_contour.append(self.RelativePosToInoculum(position = pos/outgridsize_m1, designID = self.__designassignment[dataID]))
 
         threshold_contour = np.vstack(threshold_contour)
         return threshold_contour
