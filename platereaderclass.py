@@ -308,10 +308,15 @@ class PlateReaderData(object):
         sB  = np.array([(mT * w[k] - m[k])**2/(w[k]*(1.-w[k])) if w[k]*(1.-w[k]) > 0 else 0 for k in range(lx)])
         idx = np.argmax(sB)
         
+        try:
+            avgthr = 0.5 * (sx[idx] + sx[idx+1])
+        except:
+            avgthr = sx[idx]
+        
         if logscale:
-            return np.exp(sx[idx])
+            return np.exp(avgthr)
         else:
-            return sx[idx]
+            return avgthr
 
 
     def ComputeThreshold(self):
