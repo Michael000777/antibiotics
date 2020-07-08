@@ -118,7 +118,7 @@ def estimate_Tau_sMIC_singleParameter(initialconditions,Rsquared = False):
 # ** main
 # *****************************************************************
 
-def main():
+def EstimateMSP(params = None):
     parser = argparse.ArgumentParser()
     
     parser_io = parser.add_argument_group(description = "==== I/O parameters ====")
@@ -131,6 +131,7 @@ def main():
     parser_io.add_argument("-I", "--PlotInoculumCombinations", default = False, action = "store_true")
     parser_io.add_argument("-T", "--WriteThresholdFiles",      default = False, action = "store_true")
     parser_io.add_argument("-F", "--WriteDataFiles",           default = False, action = "store_true")
+    parser_io.add_argument("-q", "--quiet",                    default = False, action = "store_true")
     
     parser_alg = parser.add_argument_group(description = "==== Algorithm parameters ====")
     parser_alg.add_argument("-M", "--InferenceMethods",          default = ["NfuncB"], choices = ["NfuncB", "BfuncN", "SingleParam"], nargs = "*")
@@ -143,12 +144,11 @@ def main():
     parser_alg.add_argument("-x", "--GPRFitToIndexGrid",         default = False, action = "store_true")
     parser_alg.add_argument("-B", "--UseBinarizedData",          default = False, action = "store_true")
     
-    args = parser.parse_args()
+    args = parser.parse_args(args = params)
     
     # load all data via the 'PlateReaderData' class
     data = prc.PlateReaderData(**vars(args))
     
-
 
     if not args.GnuplotOutput is None:
         gnuplotoutput = prc.GnuplotMSPOutput(datasize = len(data), outfilename = args.GnuplotOutput, **vars(args))
@@ -165,9 +165,10 @@ def main():
     if 'SingleParam' in args.InferenceMethods:  columnlist = np.concatenate([columnlist,['SP_sMIC','SPNB_tau','SPNB_R2','SPBN_tau','SPBN_R2']])
 
     results = pd.DataFrame(columns = columnlist)
-
-    print('{:30s}  '.format('# Title') + '  '.join(['{:>14.14s}'.format(c) for c in columnlist[2:]]))
-    print('# Growth/No-Growth threshold: {:.6f}'.format(threshold))
+    
+    if not args.quiet:
+        print('{:30s}  '.format('# Title') + '  '.join(['{:>14.14s}'.format(c) for c in columnlist[2:]]))
+        print('# Growth/No-Growth threshold: {:.6f}'.format(threshold))
 
     for i in range(len(data)):
         if args.GaussianProcessRegression:  transitions = data.compute_growth_nogrowth_transition_GPR(i, threshold, gridsize = args.GPRGridsize, kernellist = args.GPRKernellist, SaveGPRSurfaceToFile = args.WriteDataFiles, FitToIndexGrid = args.GPRFitToIndexGrid)
@@ -181,10 +182,11 @@ def main():
         if 'BfuncN'      in args.InferenceMethods:  curdata.update(estimate_Tau_sMIC_linearFit_AsFuncOfN(transitions, Rsquared = True))
         if 'SingleParam' in args.InferenceMethods:  curdata.update(estimate_Tau_sMIC_singleParameter(transitions, Rsquared = True))
 
-        results.append(curdata,ignore_index = True)
+        results = results.append(curdata, ignore_index = True)
 
         # main output
-        print('{:30.30s}  '.format(curdata['Title']) + '  '.join(['{:14.6e}'.format(curdata[c]) for c in columnlist[2:]]))
+        if not args.quiet:
+            print('{:30.30s}  '.format(curdata['Title']) + '  '.join(['{:14.6e}'.format(curdata[c]) for c in columnlist[2:]]))
         
         basename = (args.BasenameExtension + data.titles[i]).replace(' ','_')
 
@@ -207,5 +209,5 @@ def main():
 
     
 if __name__ == "__main__":
-    main()
+    EstimateMSP()
 
