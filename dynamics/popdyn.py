@@ -220,7 +220,7 @@ class TimeIntegratorDynamics(object):
 
 
 
-def main():
+def PopDyn(params = None):
     parser = argparse.ArgumentParser()
     
     parser_AB = parser.add_argument_group(description = "==== AB parameters ====")
@@ -251,7 +251,7 @@ def main():
     parser_io.add_argument("-o", "--outfilename",    default = "out", type = str)
     parser_io.add_argument("-v", "--verbose",        default = False, action = 'store_true')
     
-    args = parser.parse_args()
+    args = parser.parse_args(params)
     
     
     
@@ -264,6 +264,6 @@ def main():
     return d
 
 if __name__ == "__main__":
-    main()
+    PopDyn()
 
     
