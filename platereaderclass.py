@@ -69,6 +69,7 @@ class PlateReaderData(object):
         
         # load all data at __init__()
         if len(self.__infilenames) > 0:
+            i = 0
             for fn in self.__infilenames:
                 try:
                     tmpExcelFile = pd.ExcelFile(fn)
@@ -80,7 +81,6 @@ class PlateReaderData(object):
                     tmpDesignData1 = self.read_sheet(tmpExcelFile,designsheet,**self.__read_coordinates_design1)
                     self.__designdata.append((tmpDesignData0,tmpDesignData1))
                     self.__designtitle.append(designsheet)
-                i = 0
                 for sheet in [s for s in tmpExcelFile.sheet_names if not self.ignoresheet(s)]:
                     tmpSheetData = self.read_sheet(tmpExcelFile, sheet, **self.__read_coordinates)
                     self.__data.append(tmpSheetData)
