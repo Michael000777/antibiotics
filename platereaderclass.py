@@ -19,7 +19,6 @@ except:
 #import cairo
 #import svgwrite
 
-
 class PlateReaderData(object):
     def __init__(self,**kwargs):
 
@@ -72,9 +71,9 @@ class PlateReaderData(object):
             i = 0
             for fn in self.__infilenames:
                 try:
-                    tmpExcelFile = pd.ExcelFile(fn)
+                    tmpExcelFile = pd.ExcelFile(fn, engine = 'openpyxl')
                 except:
-                    continue
+                   continue
                 
                 for designsheet in [s for s in tmpExcelFile.sheet_names if self.ignoresheet(s)]:
                     tmpDesignData0 = self.read_sheet(tmpExcelFile,designsheet,**self.__read_coordinates_design0)
@@ -127,6 +126,7 @@ class PlateReaderData(object):
             else:
                 if sheetname.upper() == ignore.upper():
                     r = True
+
         return r
 
     

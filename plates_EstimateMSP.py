@@ -137,7 +137,7 @@ def EstimateMSP(params = None):
     parser_alg.add_argument("-M", "--InferenceMethods",          default = ["NfuncB"], choices = ["NfuncB", "BfuncN", "SingleParam"], nargs = "*")
     parser_alg.add_argument("-t", "--GrowthThreshold",           default = None,  type = float)
     parser_alg.add_argument("-D", "--DesignAssignment",          default = [],    type = int, nargs = "*")
-    parser_alg.add_argument("-d", "--GenerateDesign",            default = [6e6,4,6.25,2], nargs = 4, type = int)
+    parser_alg.add_argument("-d", "--GenerateDesign",            default = [6e6,4,6.25,2], nargs = 4, type = float)
     parser_alg.add_argument("-R", "--GaussianProcessRegression", default = False, action = "store_true")
     parser_alg.add_argument("-n", "--GPRGridsize",               default = 24,    type = int)
     parser_alg.add_argument("-K", "--GPRKernellist",             default = ['white','matern'], type = str, nargs = "*")
