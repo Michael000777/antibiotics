@@ -37,7 +37,7 @@ class PlateReaderData(object):
         self.__rescale                  = kwargs.get("DataRescale",False)
         self.__logscale                 = kwargs.get("DataLogscale",False)
         self.__logmin                   = kwargs.get("DataLogscaleMin",-20)
-        
+        self.__GrowthThresholdLog       = kwargs.get("GrowthThresholdLog",True)
         
         # default positions in Excel-file for data and plate design
         # note: indices start at 1 to account for the normal numbering in Excel!
@@ -271,12 +271,12 @@ class PlateReaderData(object):
     # data analysis routines #
     ##########################
 
-    def EstimateGrowthThreshold(self, dataID = None, logscale = True):
+    def EstimateGrowthThreshold(self, dataID = None, logscale = None):
         # otsu's method
         # described in IEEE TRANSACTIONS ON SYSTEMS, MAN, AND CYBERNETICS (1979)
         # usually used to binarize photos into black/white, here we separate the growth/no-growth transition
         # modified to use 'uniform distribution', ie in each bin of the histogram we have one value, but spacing between bins is different
-        
+
         # prepare data
         x = list()
         if dataID is None:
@@ -294,6 +294,9 @@ class PlateReaderData(object):
             # something went wrong
             raise TypeError
         x = np.array(x)
+
+        if logscale is None:
+            logscale = self.__GrowthThresholdLog
         if logscale: x = np.log(x)
 
         # need sorted data
@@ -301,18 +304,18 @@ class PlateReaderData(object):
         lx = len(x)
 
         # actual algorithm
-        w   = np.arange(lx,dtype=np.float)/lx
+        w   = np.arange(lx, dtype = float)/lx
         m   = np.array([np.mean(sx[:k]) * w[k] if k > 0 else 0 for k in range(lx)])
         mT  = np.mean(sx)
-        
+
         sB  = np.array([(mT * w[k] - m[k])**2/(w[k]*(1.-w[k])) if w[k]*(1.-w[k]) > 0 else 0 for k in range(lx)])
         idx = np.argmax(sB)
-        
+
         try:
             avgthr = 0.5 * (sx[idx] + sx[idx+1])
         except:
-            avgthr = sx[idx]
-        
+            avgthr = sx[idx] + shift
+
         if logscale:
             return np.exp(avgthr)
         else:
