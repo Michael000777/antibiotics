@@ -38,6 +38,7 @@ class PlateReaderData(object):
         self.__logscale                 = kwargs.get("DataLogscale",False)
         self.__logmin                   = kwargs.get("DataLogscaleMin",-20)
 
+        self.__force_orientation        = kwargs.get("ForceOrientation", False)
 
         # default positions in Excel-file for data and plate design
         # note: indices start at 1 to account for the normal numbering in Excel!
@@ -95,6 +96,29 @@ class PlateReaderData(object):
                     i+=1
         else:
             raise IOError('No input data provided. Use option -i FILENAME1 [FILENAME2 ...]')
+
+
+        # force orientation of all data to be the same
+        if self.__force_orientation:
+            tmp_switch_designs = []
+            for i in range(len(self.__data)):
+                orientation0 = orientation1 = 1
+                if self.__designdata[self.__designassignment[i]][0][0,0] > self.__designdata[self.__designassignment[i]][0][-1,-1]: orientation0 = -1
+                if self.__designdata[self.__designassignment[i]][1][0,0] < self.__designdata[self.__designassignment[i]][1][-1,-1]: orientation1 = -1
+
+                if orientation0 != 1 or orientation1 != 1:
+                    self.__data[i] = self.__data[i][::orientation1,::orientation0]
+
+                    if self.__designassignment[i] not in tmp_switch_designs:
+                        tmp_switch_designs.append(self.__designassignment[i])
+
+            for i in tmp_switch_designs:
+                orientation0 = orientation1 = 1
+                if self.__designdata[i][0][0,0] > self.__designdata[i][0][-1,-1]: orientation0 = -1
+                if self.__designdata[i][1][0,0] < self.__designdata[i][1][-1,-1]: orientation1 = -1
+
+                self.__designdata[i] = (self.__designdata[i][0][::orientation1, ::orientation0],self.__designdata[i][1][::orientation1, ::orientation0])
+
 
 
     ########################################
