@@ -9,6 +9,7 @@ import argparse
 import sys,math
 import uncertainties
 from uncertainties.umath import exp as uexp
+from scipy.optimize import curve_fit
 
 import platereaderclass as prc
 
@@ -27,10 +28,10 @@ def LMSQ(x,y):
     denom  = (n*sxx-sx*sx)
     b      = (n*sxy - sx*sy)/denom
     a      = (sy-b*sx)/n
-    estim  = np.array([a,b],dtype=np.float)
+    estim  = np.array([a,b], dtype = float)
 
     sigma2 = syy + n*a*a + b*b*sxx + 2*a*b*sx - 2*a*sy - 2*b*sxy
-    cov    = sigma2 / denom * np.array([[sxx,-sx],[-sx,n]],dtype=np.float)
+    cov    = sigma2 / denom * np.array([[sxx,-sx],[-sx,n]], dtype = float)
 
     return estim,cov
 
@@ -48,10 +49,12 @@ def estimate_Tau_sMIC_linearFit_AsFuncOfB(initialconditions,Rsquared = False):
     fit_with_errors       = uncertainties.correlated_values(fit,cov)
     
     ret                   = dict()
-    ret['NB_tau']         = uncertainties.nominal_value(1./fit_with_errors[1])
-    ret['NB_tau_stddev']  = uncertainties.std_dev(1./fit_with_errors[1])
-    ret['NB_sMIC']        = uncertainties.nominal_value(uexp(-fit_with_errors[0]/fit_with_errors[1]))
-    ret['NB_sMIC_stddev'] = uncertainties.std_dev(uexp(-fit_with_errors[0]/fit_with_errors[1]))
+    ret['NB_itau']        = (1/fit_with_errors[1]).nominal_value
+    ret['NB_itau_stddev'] = (1/fit_with_errors[1]).std_dev
+    ret['NB_tau']         = fit_with_errors[1].nominal_value
+    ret['NB_tau_stddev']  = fit_with_errors[1].std_dev
+    ret['NB_sMIC']        = (uexp(-fit_with_errors[0]/fit_with_errors[1])).nominal_value
+    ret['NB_sMIC_stddev'] = (uexp(-fit_with_errors[0]/fit_with_errors[1])).std_dev
     
     if Rsquared:
         residuals         = Nm1 - fit[0] - fit[1] * lB
@@ -71,10 +74,12 @@ def estimate_Tau_sMIC_linearFit_AsFuncOfN(initialconditions,Rsquared = False):
     fit_with_errors       = uncertainties.correlated_values(fit,cov)
     
     ret                   = dict()
-    ret['BN_tau']         = uncertainties.nominal_value(fit_with_errors[1])
-    ret['BN_tau_stddev']  = uncertainties.std_dev(fit_with_errors[1])
-    ret['BN_sMIC']        = uncertainties.nominal_value(uexp(fit_with_errors[0]))
-    ret['BN_sMIC_stddev'] = uncertainties.std_dev(uexp(fit_with_errors[0]))
+    ret['BN_itau']        = fit_with_errors[1].nominal_value
+    ret['BN_itau_stddev'] = fit_with_errors[1].std_dev
+    ret['BN_tau']         = (1/fit_with_errors[1]).nominal_value
+    ret['BN_tau_stddev']  = (1/fit_with_errors[1]).std_dev
+    ret['BN_sMIC']        = (uexp(fit_with_errors[0])).nominal_value
+    ret['BN_sMIC_stddev'] = (uexp(fit_with_errors[0])).std_dev
     
     if Rsquared:
         residuals         = lB - fit[0] - fit[1] * Nm1
@@ -97,8 +102,10 @@ def estimate_Tau_sMIC_singleParameter(initialconditions,Rsquared = False):
     Nm1 = initialconditions[:,1] - 1
     lBM = np.log(initialconditions[:,0]/smic)
     
-    ret['SPNB_tau'] = np.sum(lBM/Nm1)
-    ret['SPBN_tau'] = np.dot(Nm1,lBM)/(np.dot(Nm1,Nm1))
+    ret['SPNB_itau'] = np.sum(lBM/Nm1)
+    ret['SPBN_itau'] = np.dot(Nm1,lBM)/(np.dot(Nm1,Nm1))
+    ret['SPNB_tau']  = 1/ret['SPNB_itau']
+    ret['SPBN_tau']  = 1/ret['SPBN_itau']
 
     if Rsquared:
         residuals       = ret['SPNB_tau'] - lBM/Nm1
@@ -114,6 +121,36 @@ def estimate_Tau_sMIC_singleParameter(initialconditions,Rsquared = False):
     return ret
 
 
+def estimate_Tau_sMIC_nonlinfit_AsFuncLogN(initialconditions, Rsquared = False):
+    def func_lB(logN, tau, logmu): return np.exp(logN)/tau + logmu
+
+    ret = dict()
+
+    lNm1 = np.log(initialconditions[:,1] - 1)
+    lB   = np.log(initialconditions[:,0])
+
+    p0 = [np.exp(np.median(lNm1)), np.min(lB)]
+
+    fit,cov = curve_fit(func_lB, lNm1, lB, p0 = p0, maxfev = 1000)
+    fit_with_errors = uncertainties.correlated_values(fit,cov)
+
+    ret['BlN_sMIC']        = uexp(fit_with_errors[1]).nominal_value
+    ret['BlN_sMIC_stddev'] = uexp(fit_with_errors[1]).std_dev
+    ret['BlN_tau']         = fit_with_errors[0].nominal_value
+    ret['BlN_tau_stddev']  = fit_with_errors[0].std_dev
+    ret['BlN_itau']        = (1/fit_with_errors[0]).nominal_value
+    ret['BlN_itau_stddev'] = (1/fit_with_errors[0]).std_dev
+
+    if Rsquared:
+        residuals     = lB - func_lB(lNm1, fit[0], fit[1])
+        ss_res        = np.sum(residuals**2)
+        ss_tot        = np.sum((lB - np.mean(lB))**2)
+        ret['BlN_R2'] = 1 - ss_res/ss_tot
+
+    return ret
+
+
+
 # *****************************************************************
 # ** main
 # *****************************************************************
@@ -124,9 +161,6 @@ def EstimateMSP(params = None):
     parser_io = parser.add_argument_group(description = "==== I/O parameters ====")
     parser_io.add_argument("-i", "--infiles",                  nargs = "*")
     parser_io.add_argument("-X", "--BasenameExtension",        default = "",    type=str)
-    parser_io.add_argument("-G", "--GnuplotOutput",            default = None,  type = str)
-    parser_io.add_argument("-g", "--GnuplotColumns",           default = 3,     type = int)
-    parser_io.add_argument("-r", "--GnuplotRange",             default = [1e-3,1e2,1e2,1e8], nargs = 4, type = float)
     parser_io.add_argument("-P", "--GenerateImages",           default = False, action = "store_true")
     parser_io.add_argument("-I", "--PlotInoculumCombinations", default = False, action = "store_true")
     parser_io.add_argument("-T", "--WriteThresholdFiles",      default = False, action = "store_true")
@@ -134,9 +168,10 @@ def EstimateMSP(params = None):
     parser_io.add_argument("-q", "--quiet",                    default = False, action = "store_true")
     
     parser_alg = parser.add_argument_group(description = "==== Algorithm parameters ====")
-    parser_alg.add_argument("-M", "--InferenceMethods",          default = ["NfuncB"], choices = ["NfuncB", "BfuncN", "SingleParam"], nargs = "*")
+    parser_alg.add_argument("-M", "--InferenceMethods",          default = ["BfuncLogN"], choices = ["NfuncB", "BfuncN", "SingleParam", "BfuncLogN"], nargs = "*")
     parser_alg.add_argument("-t", "--GrowthThreshold",           default = None,  type = float)
     parser_alg.add_argument("-L", "--GrowthThresholdLog",        default = True, action = "store_false")
+    parser_alg.add_argument("-W", "--ThresholdWeight",           default = 0.5, type = float)
     parser_alg.add_argument("-D", "--DesignAssignment",          default = [],    type = int, nargs = "*")
     parser_alg.add_argument("-d", "--GenerateDesign",            default = [6e6,4,6.25,2], nargs = 4, type = float)
     parser_alg.add_argument("-R", "--GaussianProcessRegression", default = False, action = "store_true")
@@ -144,6 +179,7 @@ def EstimateMSP(params = None):
     parser_alg.add_argument("-K", "--GPRKernellist",             default = ['white','matern'], type = str, nargs = "*")
     parser_alg.add_argument("-x", "--GPRFitToIndexGrid",         default = False, action = "store_true")
     parser_alg.add_argument("-B", "--UseBinarizedData",          default = False, action = "store_true")
+    parser_alg.add_argument("-O", "--ForceOrientation",          default = False, action = "store_true")
     
     args = parser.parse_args(args = params)
     
@@ -151,9 +187,6 @@ def EstimateMSP(params = None):
     data = prc.PlateReaderData(**vars(args))
     
 
-    if not args.GnuplotOutput is None:
-        gnuplotoutput = prc.GnuplotMSPOutput(datasize = len(data), outfilename = args.GnuplotOutput, **vars(args))
-        gnuplotoutput.write_init()
    
     if data.count_design == 0:
         data.generate_design(xstart = args.GenerateDesign[0], xdilution = args.GenerateDesign[1], ystart = args.GenerateDesign[2], ydilution = args.GenerateDesign[3])
@@ -161,9 +194,10 @@ def EstimateMSP(params = None):
     threshold = data.EstimateGrowthThreshold(dataID = None, logscale = args.GrowthThresholdLog) # None indicates *ALL* data
 
     columnlist = np.array(['Title','Filename'])
-    if 'NfuncB'      in args.InferenceMethods:  columnlist = np.concatenate([columnlist,['NB_sMIC','NB_sMIC_stddev','NB_tau','NB_tau_stddev','NB_R2']])
-    if 'BfuncN'      in args.InferenceMethods:  columnlist = np.concatenate([columnlist,['BN_sMIC','BN_sMIC_stddev','BN_tau','BN_tau_stddev','BN_R2']])
-    if 'SingleParam' in args.InferenceMethods:  columnlist = np.concatenate([columnlist,['SP_sMIC','SPNB_tau','SPNB_R2','SPBN_tau','SPBN_R2']])
+    if 'NfuncB'      in args.InferenceMethods:  columnlist = np.concatenate([columnlist,['NB_sMIC', 'NB_sMIC_stddev', 'NB_tau', 'NB_tau_stddev', 'NB_R2']])
+    if 'BfuncN'      in args.InferenceMethods:  columnlist = np.concatenate([columnlist,['BN_sMIC', 'BN_sMIC_stddev', 'BN_tau', 'BN_tau_stddev', 'BN_R2']])
+    if 'SingleParam' in args.InferenceMethods:  columnlist = np.concatenate([columnlist,['SP_sMIC', 'SPNB_tau', 'SPBN_tau', 'SPNB_R2', 'SPBN_R2']])
+    if 'BfuncLogN'   in args.InferenceMethods:  columnlist = np.concatenate([columnlist,['BlN_sMIC', 'BlN_sMIC_stddev', 'BlN_tau',  'BlN_tau_stddev',  'BlN_itau',  'BlN_itau_stddev', 'BlN_R2']])
 
     results = pd.DataFrame(columns = columnlist)
     
@@ -182,6 +216,7 @@ def EstimateMSP(params = None):
         if 'NfuncB'      in args.InferenceMethods:  curdata.update(estimate_Tau_sMIC_linearFit_AsFuncOfB(transitions, Rsquared = True))
         if 'BfuncN'      in args.InferenceMethods:  curdata.update(estimate_Tau_sMIC_linearFit_AsFuncOfN(transitions, Rsquared = True))
         if 'SingleParam' in args.InferenceMethods:  curdata.update(estimate_Tau_sMIC_singleParameter(transitions, Rsquared = True))
+        if 'BfuncLogN'   in args.InferenceMethods:  curdata.update(estimate_Tau_sMIC_nonlinfit_AsFuncLogN(transitions, Rsquared = True))
 
         results = results.append(curdata, ignore_index = True)
 
@@ -191,15 +226,9 @@ def EstimateMSP(params = None):
         
         basename = (args.BasenameExtension + data.titles[i]).replace(' ','_')
 
-        if args.WriteThresholdFiles or not args.GnuplotOutput is None:
+        if args.WriteThresholdFiles:
             np.savetxt(basename + '.threshold',transitions)
         
-        if not args.GnuplotOutput is None:
-            if args.PlotInoculumCombinations:
-                gnuplotoutput.write_plot(i, basename, basename, curdata, inoculum = data.get_design(dataID = i))
-            else:
-                gnuplotoutput.write_plot(i, basename, basename, curdata)
-
         if args.GenerateImages:
             prc.PlateImage(data[i], data.titles[i], growththreshold = threshold)
     

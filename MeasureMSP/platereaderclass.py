@@ -39,6 +39,7 @@ class PlateReaderData(object):
         self.__logmin                   = kwargs.get("DataLogscaleMin",-20)
 
         self.__force_orientation        = kwargs.get("ForceOrientation", False)
+        self.__threshold_weight         = kwargs.get("ThresholdWeight", 0.5)
 
         # default positions in Excel-file for data and plate design
         # note: indices start at 1 to account for the normal numbering in Excel!
@@ -295,11 +296,13 @@ class PlateReaderData(object):
     # data analysis routines #
     ##########################
 
-    def EstimateGrowthThreshold(self, dataID = None, logscale = True):
+    def EstimateGrowthThreshold(self, dataID = None, logscale = True, weight = None):
         # otsu's method
         # described in IEEE TRANSACTIONS ON SYSTEMS, MAN, AND CYBERNETICS (1979)
         # usually used to binarize photos into black/white, here we separate the growth/no-growth transition
         # modified to use 'uniform distribution', ie in each bin of the histogram we have one value, but spacing between bins is different
+
+        if weight is None: weight = self.__threshold_weight
 
         # prepare data
         x = list()
@@ -333,7 +336,7 @@ class PlateReaderData(object):
         idx = np.argmax(sB)
 
         try:
-            avgthr = 0.5 * (sx[idx] + sx[idx+1])
+            avgthr = (1 - weight)*sx[idx] + weight*sx[idx+1]
         except:
             avgthr = sx[idx]
 
@@ -343,8 +346,8 @@ class PlateReaderData(object):
             return avgthr
 
 
-    def ComputeThreshold(self):
-        self.__threshold = self.EstimateGrowthThreshold(dataID = None)
+    def ComputeThreshold(self, weight = None):
+        self.__threshold = self.EstimateGrowthThreshold(dataID = None, weight = weight)
 
 
     def get_noise_estimates(self,dataID):
@@ -391,10 +394,10 @@ class PlateReaderData(object):
     # copmute transitions between growth and no-growth with various methods #
     #########################################################################
 
-    def transitions(self,threshold = None, useGPR = False):
+    def transitions(self,threshold = None, useGPR = False, weight = None):
         if threshold is None:
             if self.__threshold is None:
-                threshold = self.EstimateGrowthThreshold(dataID = None)
+                threshold = self.EstimateGrowthThreshold(dataID = None, weight = weight)
             else:
                 threshold = self.__threshold
         if useGPR:
@@ -403,11 +406,11 @@ class PlateReaderData(object):
             return [(self.__filenames[i], self.__sheetnames[i], self.compute_growth_nogrowth_transition(i,threshold)) for i in range(len(self.__data))]
 
 
-    def compute_growth_nogrowth_transition(self, dataID, threshold = None, geom = True, onlyLongest = True):
+    def compute_growth_nogrowth_transition(self, dataID, threshold = None, geom = True, onlyLongest = True, weight = None):
 
         if threshold is None:
             if self.__threshold is None:
-                threshold = self.EstimateGrowthThreshold(dataID)
+                threshold = self.EstimateGrowthThreshold(dataID, weight = weight)
             else:
                 threshold = self.__threshold
 
@@ -527,12 +530,12 @@ class PlateReaderData(object):
         return platedata_prediction.reshape(outshape, order = 'A')
 
 
-    def compute_growth_nogrowth_transition_GPR(self, dataID, threshold = None, gridsize = 24, kernellist = ['white','matern'], SaveGPRSurfaceToFile = False, FitToIndexGrid = False, onlyLongest = True):
+    def compute_growth_nogrowth_transition_GPR(self, dataID, threshold = None, gridsize = 24, kernellist = ['white','matern'], SaveGPRSurfaceToFile = False, FitToIndexGrid = False, onlyLongest = True, weight = None):
 
         if self.__UseBinarizedData:
             threshold = 0.5
         if threshold is None:
-            threshold  = self.EstimateGrowthThreshold(dataID = None)
+            threshold  = self.EstimateGrowthThreshold(dataID = None, weight = weight)
 
         outgridsize    = (gridsize,gridsize)
         outgridsize_m1 = np.array(outgridsize) - np.ones(2)
@@ -798,64 +801,4 @@ class PlateImage(object):
 
 
 
-
-
-
-
-
-
-
-class GnuplotMSPOutput(object):
-    def __init__(self,**kwargs):
-        self.__outfilename   = kwargs.get('outfilename','out.gnuplot')
-        self.__columns       = kwargs.get('GnuplotColumns',3)
-        self.__datasize      = kwargs.get('datasize')
-        self.__xrange        = np.array(kwargs.get('GnuplotRange',[1e-3,1e2,0,0])[:2],dtype=np.float)
-        self.__yrange        = np.array(kwargs.get('GnuplotRange',[0,0,1e2,1e8])[2:],dtype=np.float)
-
-        self.fp              = open(self.__outfilename,'w')
-
-    def __del__(self):
-        self.fp.close()
-
-    def write_init(self):
-        self.fp.write("set terminal pngcairo enhanced size 1920,1080\n")
-        self.fp.write("set output \"{:s}.png\"\n".format(self.__outfilename))
-        self.fp.write("set multiplot\n")
-        self.fp.write("set border 15 lw 2 lc rgb \"#2e3436\"\n")
-        self.fp.write("set tics front\n")
-        self.fp.write("set xra [{:e}:{:e}]\n".format(*self.__xrange))
-        self.fp.write("set yra [{:e}:{:e}]\n".format(*self.__yrange))
-        self.fp.write("set logscale\n")
-        self.fp.write("set format \"10^\{%L\}\"\n")
-        self.fp.write("set samples 2001")
-        ysize = 1./self.__columns
-        if self.__datasize % self.__columns == 0:
-            xsize = 1./(self.__datasize//self.__columns)
-        else:
-            xsize = 1./(self.__datasize//self.__columns + 1.)
-        self.fp.write("xsize = {:e}\n".format(xsize))
-        self.fp.write("ysize = {:e}\n".format(ysize))
-        self.fp.write("xoffset = 0\n")
-        self.fp.write("yoffset = 0\n")
-        self.fp.write("set size {:e},{:e}\n".format(xsize,ysize))
-        self.fp.write("n0(abconc,taulambda,ssmic) = 1 + log(abconc / ssmic) / taulambda\n")
-        self.fp.write("set label 1 \"empty\" at graph .5,.9 center front\n")
-        self.fp.write("set key at graph .95,.4\n")
-        self.fp.write("set samples 1001\n")
-        self.fp.write("\n")
-
-    def write_plot(self,ID,label,basename,curdata, inoculum = None):
-        self.fp.write("set origin xoffset + {:d} * xsize, yoffset + {:d} * ysize\n" . format(ID//self.__columns,ID % self.__columns))
-        self.fp.write("set label 1 \"{:s}\"\n".format(label.replace('_','-')))
-        self.fp.write("plot \\\n")
-        if not inoculum is None:
-            for x,y in zip(inoculum[0].flatten(),inoculum[1].flatten()):
-                self.fp.write("   '+' u ({:e}):({:e}) w p pt 7 ps 1 lc rgb \"#eeeeec\" title \"\",\\\n".format(x,y))
-        if 'SP_sMIC' in curdata.keys(): self.fp.write("  n0(x,{:e},{:e}) w l lw 4 lc rgb \"#4e9a06\" title \"SP B(N)\",\\\n".format(curdata['SPBN_tau'],curdata['SP_sMIC']))
-        if 'SP_sMIC' in curdata.keys(): self.fp.write("  n0(x,{:e},{:e}) w l lw 4 lc rgb \"#8ae234\" title \"SP N(B)\",\\\n".format(curdata['SPNB_tau'],curdata['SP_sMIC']))
-        if 'BN_sMIC' in curdata.keys(): self.fp.write("  n0(x,{:e},{:e}) w l lw 4 lc rgb \"#a40000\" title \"B(N)\",\\\n".format(curdata['BN_tau'],curdata['BN_sMIC']))
-        if 'NB_sMIC' in curdata.keys(): self.fp.write("  n0(x,{:e},{:e}) w l lw 4 lc rgb \"#ef2929\" title \"N(B)\",\\\n".format(curdata['NB_tau'],curdata['NB_sMIC']))
-        self.fp.write("  \"{:s}\" u 1:2 w p pt 7 ps 2 lc rgb \"#3465a4\" title \"\"\n".format(basename + '.threshold'))
-        self.fp.write("\n")
 
