@@ -150,6 +150,37 @@ def estimate_Tau_sMIC_nonlinfit_AsFuncLogN(initialconditions, Rsquared = False):
     return ret
 
 
+def estimate_Tau_sMIC_nonlinfit_XI_AsFuncLogN(initialconditions, Rsquared = False):
+    def func_lBx(logN, tau, logmu, ixi): return np.power(np.exp(logN)/tau, ixi) + logmu
+
+    ret = dict()
+
+    lNm1 = np.log(initialconditions[:,1] - 1)
+    lB   = np.log(initialconditions[:,0])
+
+    p0 = [np.exp(np.median(lNm1)), np.min(lB), 1.]
+
+    fit,cov = curve_fit(func_lB, lNm1, lB, p0 = p0, maxfev = 1000)
+    fit_with_errors = uncertainties.correlated_values(fit,cov)
+
+    ret['BlNx_sMIC']        = uexp(fit_with_errors[1]).nominal_value
+    ret['BlNx_sMIC_stddev'] = uexp(fit_with_errors[1]).std_dev
+    ret['BlNx_tau']         = fit_with_errors[0].nominal_value
+    ret['BlNx_tau_stddev']  = fit_with_errors[0].std_dev
+    ret['BlNx_itau']        = (1/fit_with_errors[0]).nominal_value
+    ret['BlNx_itau_stddev'] = (1/fit_with_errors[0]).std_dev
+    ret['BlNx_xi']          = (1/fit_with_errors[2]).nominal_value
+    ret['BlNx_xi_stddev']   = (1/fit_with_errors[2]).std_dev
+
+    if Rsquared:
+        residuals     = lB - func_lB(lNm1, fit[0], fit[1])
+        ss_res        = np.sum(residuals**2)
+        ss_tot        = np.sum((lB - np.mean(lB))**2)
+        ret['BlN_R2'] = 1 - ss_res/ss_tot
+
+    return ret
+
+
 
 # *****************************************************************
 # ** main
@@ -161,14 +192,13 @@ def EstimateMSP(params = None):
     parser_io = parser.add_argument_group(description = "==== I/O parameters ====")
     parser_io.add_argument("-i", "--infiles",                  nargs = "*")
     parser_io.add_argument("-X", "--BasenameExtension",        default = "",    type=str)
-    parser_io.add_argument("-P", "--GenerateImages",           default = False, action = "store_true")
     parser_io.add_argument("-I", "--PlotInoculumCombinations", default = False, action = "store_true")
     parser_io.add_argument("-T", "--WriteThresholdFiles",      default = False, action = "store_true")
     parser_io.add_argument("-F", "--WriteDataFiles",           default = False, action = "store_true")
     parser_io.add_argument("-q", "--quiet",                    default = False, action = "store_true")
     
     parser_alg = parser.add_argument_group(description = "==== Algorithm parameters ====")
-    parser_alg.add_argument("-M", "--InferenceMethods",          default = ["BfuncLogN"], choices = ["NfuncB", "BfuncN", "SingleParam", "BfuncLogN"], nargs = "*")
+    parser_alg.add_argument("-M", "--InferenceMethods",          default = ["BfuncLogN"], choices = ["NfuncB", "BfuncN", "SingleParam", "BfuncLogN", "BfuncLogNxi"], nargs = "*")
     parser_alg.add_argument("-t", "--GrowthThreshold",           default = None,  type = float)
     parser_alg.add_argument("-L", "--GrowthThresholdLog",        default = True, action = "store_false")
     parser_alg.add_argument("-W", "--ThresholdWeight",           default = 0.5, type = float)
@@ -198,6 +228,7 @@ def EstimateMSP(params = None):
     if 'BfuncN'      in args.InferenceMethods:  columnlist = np.concatenate([columnlist,['BN_sMIC', 'BN_sMIC_stddev', 'BN_tau', 'BN_tau_stddev', 'BN_R2']])
     if 'SingleParam' in args.InferenceMethods:  columnlist = np.concatenate([columnlist,['SP_sMIC', 'SPNB_tau', 'SPBN_tau', 'SPNB_R2', 'SPBN_R2']])
     if 'BfuncLogN'   in args.InferenceMethods:  columnlist = np.concatenate([columnlist,['BlN_sMIC', 'BlN_sMIC_stddev', 'BlN_tau',  'BlN_tau_stddev',  'BlN_itau',  'BlN_itau_stddev', 'BlN_R2']])
+    if 'BfuncLogNxi' in args.InferenceMethods:  columnlist = np.concatenate([columnlist,['BlNx_sMIC', 'BlNx_sMIC_stddev', 'BlNx_tau',  'BlNx_tau_stddev',  'BlNx_itau',  'BlNx_itau_stddev', 'BlNx_R2', 'BlNx_xi', 'BlNx_xi_stddev']])
 
     results = pd.DataFrame(columns = columnlist)
     
@@ -229,9 +260,6 @@ def EstimateMSP(params = None):
         if args.WriteThresholdFiles:
             np.savetxt(basename + '.threshold',transitions)
         
-        if args.GenerateImages:
-            prc.PlateImage(data[i], data.titles[i], growththreshold = threshold)
-    
         if args.WriteDataFiles:
             data.WriteData(dataID = i, filename = basename + '.data')
             

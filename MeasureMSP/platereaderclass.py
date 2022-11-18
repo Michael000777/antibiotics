@@ -2,10 +2,8 @@
 
 import numpy as np
 import pandas as pd
-import argparse
-import sys,math
+import sys
 import itertools
-
 
 from skimage import measure
 
@@ -15,9 +13,6 @@ try:
 except:
     from collections.abc import Sequence
 
-## loaded upon chosing output format below
-#import cairo
-#import svgwrite
 
 class PlateReaderData(object):
     def __init__(self,**kwargs):
@@ -391,7 +386,7 @@ class PlateReaderData(object):
 
 
     #########################################################################
-    # copmute transitions between growth and no-growth with various methods #
+    # compute transitions between growth and no-growth with various methods #
     #########################################################################
 
     def transitions(self,threshold = None, useGPR = False, weight = None):
@@ -430,7 +425,11 @@ class PlateReaderData(object):
             return None
 
 
-    # Gaussian Process Regression:
+
+    ###############################
+    # Gaussian Process Regression #
+    ###############################
+
     # first get a much finer grid of interpolated data, not just the 8x12 wells on a plate
     # then estimate curve through this surface on fine grid at threshold
 
@@ -607,196 +606,6 @@ class PlateReaderData(object):
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-class PlateImage(object):
-    def __init__(self, data, outfilename = None,**kwargs):
-        self.__data            = data
-        self.__outputformat    = kwargs.get('outputformat','svg')
-        self.__logscale        = kwargs.get('logscale',False)
-        self.__growththreshold = kwargs.get('growththreshold')
-
-        self.extract_figure_file_parameters(kwargs)
-
-        if outfilename is None:
-            self.__outfilename = 'out.' + self.__outputformat.lower()
-        else:
-            self.__outfilename = outfilename
-            if self.__outfilename[:-4].upper() != '.' + self.__outputformat.upper():
-                self.__outfilename += '.' + self.__outputformat
-
-        # load appropriate modules only now
-        if self.__outputformat.upper() == 'SVG':
-            if not 'svgwrite' in sys.modules: import svgwrite
-            self.write_SVG()
-        elif self.__outputformat.upper() == 'PNG':
-            if not 'cairo' in sys.modules: import cairo
-            self.write_PNG()
-
-
-
-    def rescale(self, g, logscale = False):
-        if logscale:
-            dmin = np.log(np.min(g))
-            dmax = np.log(np.max(g))
-            return (np.log(g) - dmin)/(dmax - dmin)
-        else:
-            dmin = np.min(g)
-            dmax = np.max(g)
-            return (g - dmin)/(dmax - dmin)
-
-
-    def extract_figure_file_parameters(self,kwargs):
-        # default values
-        self.figureparameters = {   'colors':   ['3465a4','ffffff','eeeeec','2e3436','a40000'],
-                                    'wellradius': 20,
-                                    'wellsize':50,
-                                    'linewidth':3}
-        # update default values if part of the argument dictionary
-        if 'FigureWellDistance'        in kwargs.keys():    self.figureparameters['wellsize']   = kwargs['FigureWellDistance']
-        if 'FigureWellRadius'          in kwargs.keys():    self.figureparameters['wellradius'] = kwargs['FigureWellRadius']
-        if 'FigureLinewidth'           in kwargs.keys():    self.figureparameters['linewidth']  = kwargs['FigureLinewidth']
-        if 'FigureColorFull'           in kwargs.keys():    self.figureparameters['colors'][0]  = kwargs['FigureColorFull']
-        if 'FigureColorEmpty'          in kwargs.keys():    self.figureparameters['colors'][1]  = kwargs['FigureColorEmpty']
-        if 'FigureColorBackground'     in kwargs.keys():    self.figureparameters['colors'][2]  = kwargs['FigureColorBackground']
-        if 'FigureColorBorder'         in kwargs.keys():    self.figureparameters['colors'][3]  = kwargs['FigureColorBorder']
-        if 'FigureColorBorderNoGrowth' in kwargs.keys():    self.figureparameters['colors'][4]  = kwargs['FigureColorBorderNoGrowth']
-
-
-
-    def rgb(self,color, outformat = 'list'):
-        if color is None: return None
-        if isinstance(color, str):
-            r = int(color[0:2],16)
-            g = int(color[2:4],16)
-            b = int(color[4:6],16)
-        elif isinstance(color,(list,tuple,np.array)):
-            if isinstance(color[0],(int,np.int)):
-                r = color[0]
-                g = color[1]
-                b = color[2]
-            elif isinstance(color[0],(float,np.float)):
-                r = int(255 * color[0])
-                g = int(255 * color[1])
-                b = int(255 * color[2])
-            else:
-                raise NotImplementedError
-        else:
-            raise NotImplementedError
-
-        if outformat == 'list':
-            return np.array([r/255.,g/255.,b/255.])
-        elif outformat == 'xml':
-            return 'rgb({:d},{:d},{:d})'.format(r,g,b)
-
-
-    def interpolate_color(self, rdatavalue, color1, color2, outformat = 'list'):
-        ic = rdatavalue * self.rgb(color1, outformat = 'list') + (1-rdatavalue) * self.rgb(color2, outformat = 'list')
-
-        if outformat == 'list':
-            return ic
-        elif outformat == 'xml':
-            return 'rgb({:d},{:d},{:d})'.format(int(255 * ic[0]), int(255 * ic[1]), int(255 * ic[2]))
-
-
-    def write_SVG(self):
-        rdata = self.rescale(self.__data, logscale = self.__logscale)
-        rthreshold = -1
-        if self.__logscale:
-            dmin = np.log(np.min(self.__data))
-            dmax = np.log(np.max(self.__data))
-            if not self.__growththreshold is None:
-                rthreshold = (np.log(self.__growththreshold) - dmin)/(dmax - dmin)
-        else:
-            dmin = np.min(self.__data)
-            dmax = np.max(self.__data)
-            if not self.__growththreshold is None:
-                rthreshold = (self.__growththreshold - dmin)/(dmax - dmin)
-
-        # for some reason 'svgwrite' is not loaded into global namespace with the local import above in __init__
-        # need to access it like that:
-        img = sys.modules['svgwrite'].Drawing(self.__outfilename, size = (self.figureparameters['wellsize'] * rdata.shape[1], self.figureparameters['wellsize'] * rdata.shape[0]))
-
-        if not self.figureparameters['colors'][2] is None:
-            img.add(img.rect((0,0), (self.figureparameters['wellsize'] * rdata.shape[1], self.figureparameters['wellsize'] * rdata.shape[0]), fill = self.rgb(self.figureparameters['colors'][2], outformat = 'xml')))
-
-        for x in range(rdata.shape[0]):
-            for y in range(rdata.shape[1]):
-                if rdata[x,y] < rthreshold: bordercolor = self.rgb(self.figureparameters['colors'][4], outformat = 'xml')
-                else:                       bordercolor = self.rgb(self.figureparameters['colors'][3], outformat = 'xml')
-                fillcolor = self.interpolate_color(rdata[x,y],self.figureparameters['colors'][0], self.figureparameters['colors'][1], outformat = 'xml')
-
-                img.add(img.circle( ( (y + .5) * self.figureparameters['wellsize'], (x + .5) * self.figureparameters['wellsize'] ), self.figureparameters['wellradius'], stroke_width = self.figureparameters['linewidth'], fill = fillcolor, stroke = bordercolor))
-
-        img.save()
-
-
-    def write_PNG(self):
-        cFull           = self.rgb(self.figureparameters['colors'][0])
-        cEmpty          = self.rgb(self.figureparameters['colors'][1])
-        cBack           = self.rgb(self.figureparameters['colors'][2])
-        cBorder         = self.rgb(self.figureparameters['colors'][3])
-        cBorderNoGrowth = self.rgb(self.figureparameters['colors'][4])
-
-        rthreshold = -1
-        if self.__logscale:
-            dmin = np.log(np.min(self.__data))
-            dmax = np.log(np.max(self.__data))
-            if not self.__growththreshold is None:
-                rthreshold = (np.log(self.__growththreshold) - dmin)/(dmax - dmin)
-        else:
-            dmin = np.min(self.__data)
-            dmax = np.max(self.__data)
-            if not self.__growththreshold is None:
-                rthreshold = (self.__growththreshold - dmin)/(dmax - dmin)
-
-        CairoImage      = sys.modules['cairo'].ImageSurface(sys.modules['cairo'].FORMAT_ARGB32,self.__data.shape[1] * self.figureparameters['wellsize'],self.__data.shape[0] * self.figureparameters['wellsize'])
-        context         = sys.modules['cairo'].Context(CairoImage)
-
-        if not cBack is None:
-            context.rectangle(0,0,self.__data.shape[1] * self.figureparameters['wellsize'],self.__data.shape[0] * self.figureparameters['wellsize'])
-            context.set_source_rgb(cBack[0],cBack[1],cBack[2])
-            context.fill_preserve()
-            context.new_path()
-
-        context.set_line_width(self.figureparameters['linewidth'])
-        context.translate(.5 * self.figureparameters['wellsize'],.5 * self.figureparameters['wellsize'])
-        for x in range(int(self.__data.shape[1])):
-            for y in range(int(self.__data.shape[0])):
-                context.new_path()
-                context.arc(0,0,self.figureparameters['wellradius'],0,2*math.pi)
-                r = (self.__data[y,x] - dmin)/(dmax - dmin)
-                c = r * cFull + (1 - r) * cEmpty
-                context.set_source_rgb(c[0],c[1],c[2])
-                context.fill_preserve()
-                if r < threshold:
-                    context.set_source_rgb(cBorderNoGrowth[0],cBorderNoGrowth[1],cBorderNoGrowth[2])
-                else:
-                    context.set_source_rgb(cBorder[0],cBorder[1],cBorder[2])
-                context.stroke_preserve()
-                context.translate(0,self.figureparameters['wellsize'])
-            context.translate(self.figureparameters['wellsize'],-self.__data.shape[0] * self.figureparameters['wellsize'])
-
-        CairoImage.write_to_png(self.__outfilename)
 
 
 
