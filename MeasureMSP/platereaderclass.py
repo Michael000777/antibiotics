@@ -34,7 +34,9 @@ class PlateReaderData(object):
         self.__logmin                   = kwargs.get("DataLogscaleMin",-20)
 
         self.__force_orientation        = kwargs.get("ForceOrientation", False)
+        self.__force_equaldesignspacing = kwargs.get("ForceEqualDesignSpacing", False)
         self.__threshold_weight         = kwargs.get("ThresholdWeight", 0.5)
+        self.__threshold_logscale       = kwargs.get("ThresholdLog", False)
 
         # default positions in Excel-file for data and plate design
         # note: indices start at 1 to account for the normal numbering in Excel!
@@ -94,6 +96,19 @@ class PlateReaderData(object):
             raise IOError('No input data provided. Use option -i FILENAME1 [FILENAME2 ...]')
 
 
+        # force equal spacing between wells and ignore individual values in design sheets, except for max and min
+        if self.__force_equaldesignspacing:
+            for i in range(len(self.__designdata)):
+                Bstart, Bstop = self.__designdata[i][0][0,0], self.__designdata[i][0][-1,-1]
+                Nstart, Nstop = self.__designdata[i][1][0,0], self.__designdata[i][1][-1,-1]
+                Ncount, Bcount = self.__designdata[i][0].shape
+
+                Bvalues = np.repeat([np.exp(np.linspace(np.log(Bstart), np.log(Bstop), Bcount))], Ncount, axis = 0)
+                Nvalues = np.repeat([np.exp(np.linspace(np.log(Nstart), np.log(Nstop), Ncount))], Bcount, axis = 0).T
+
+                self.__designdata[i] = [Bvalues, Nvalues]
+
+
         # force orientation of all data to be the same
         if self.__force_orientation:
             tmp_switch_designs = []
@@ -114,6 +129,8 @@ class PlateReaderData(object):
                 if self.__designdata[i][1][0,0] < self.__designdata[i][1][-1,-1]: orientation1 = -1
 
                 self.__designdata[i] = (self.__designdata[i][0][::orientation1, ::orientation0],self.__designdata[i][1][::orientation1, ::orientation0])
+
+
 
 
 
@@ -409,8 +426,14 @@ class PlateReaderData(object):
             else:
                 threshold = self.__threshold
 
+        if threshold == 0 and self.__threshold_logscale:
+            threshold = 0.9 * np.min(self[dataID])
+
         platesize_m1      = np.array(np.shape(self[dataID]),dtype=np.float) - np.ones(2)
-        contours          = measure.find_contours(self[dataID],threshold)
+        if not self.__threshold_logscale:
+            contours      = measure.find_contours(self[dataID],threshold)
+        else:
+            contours      = measure.find_contours(np.log(self[dataID]), np.log(threshold))
 
         threshold_contour = list()
         contour_length    = np.array([len(c) for c in contours],dtype = np.int)

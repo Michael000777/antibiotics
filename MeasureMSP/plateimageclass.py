@@ -14,7 +14,7 @@ class PlateImage(object):
         self.platesize          = self.__data.shape
 
         self.__real_coordinates = kwargs.get('RealCoordinates', False)
-        self.__threshold        = kwargs.get('Threshold', None)
+        self.__threshold        = kwargs.get('Threshold', 0)
 
 
         self.design =   { 'Nmax': np.max(design[1]),
@@ -47,6 +47,13 @@ class PlateImage(object):
                               'label':   15,
                               'legend':  12,
                               'panelID': 20}
+
+        if not kwargs.get('axeslabels', None) is None:
+            self.axeslabels = kwargs.get('axeslabels')
+        else:
+            self.axeslabels = [r'Initial Antibiotic Concentration $B_0$ $[\mu g/ml]$',
+                               r'Inoculum size $N_0$ $[$cells$/ml]$']
+
 
         if fig is None:
             self.fig, self.ax = plt.subplots(1,1, figsize = (7.5,5.5))
@@ -128,15 +135,15 @@ class PlateImage(object):
         lNmax           = int(np.floor(np.log10(self.boundaries['Nmax'])))
         lBmax           = int(np.floor(np.log10(self.boundaries['Bmax'])))
 
-        Nticks_log10    = np.arange(lNmin, lNmax + np.max([1,(lNmax-lNmin)//2]), np.max([1,(lNmax-lNmin)//2]))
-        Bticks_log10    = np.arange(lBmin, lBmax + np.max([1,(lBmax-lBmin)//2]), np.max([1,(lBmax-lBmin)//2]))
-        ticks_values    = np.power(10.,[Nticks_log10,Bticks_log10])
-        ticks_grid      = self.values2grid(ticks_values.T).T
+        Nticks          = np.power(10., np.arange(lNmin, lNmax + np.max([1,(lNmax-lNmin)//2]), np.max([1,(lNmax-lNmin)//2])))
+        Bticks          = np.power(10., np.arange(lBmin, lBmax + np.max([1,(lBmax-lBmin)//2]), np.max([1,(lBmax-lBmin)//2])))
+        Nticks_grid     = self.values2grid([(x,1) for x in Nticks]).T[0]
+        Bticks_grid     = self.values2grid([(1,x) for x in Bticks]).T[1]
 
-        self.ax.set_xticks(ticks_grid[1])
-        self.ax.set_yticks(ticks_grid[0])
-        self.ax.set_xticklabels([r'$10^{{{:d}}}$'.format(b) for b in Bticks_log10], fontsize = self.fontsize['label'])
-        self.ax.set_yticklabels([r'$10^{{{:d}}}$'.format(n) for n in Nticks_log10], fontsize = self.fontsize['label'])
+        self.ax.set_xticks(Bticks_grid)
+        self.ax.set_yticks(Nticks_grid)
+        self.ax.set_xticklabels([r'$10^{{{:d}}}$'.format(int(np.log10(b))) for b in Bticks], fontsize = self.fontsize['label'])
+        self.ax.set_yticklabels([r'$10^{{{:d}}}$'.format(int(np.log10(n))) for n in Nticks], fontsize = self.fontsize['label'])
 
 
         # add background
@@ -145,8 +152,8 @@ class PlateImage(object):
 
 
         # set axes labels
-        self.ax.set_xlabel(r'Initial Antibiotic Concentration $B_0$ $[\mu g/ml]$', fontsize = self.fontsize['label'])
-        self.ax.set_ylabel(r'Inoculum size $N_0$', fontsize = self.fontsize['label'])
+        self.ax.set_xlabel(self.axeslabels[0], fontsize = self.fontsize['label'])
+        self.ax.set_ylabel(self.axeslabels[1], fontsize = self.fontsize['label'])
 
 
     def patch_color(self, value, color1 = None, color2 = None, hexoutput = True):
