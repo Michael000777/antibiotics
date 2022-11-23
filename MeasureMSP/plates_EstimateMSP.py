@@ -210,6 +210,8 @@ def EstimateMSP(params = None):
     parser_alg.add_argument("-x", "--GPRFitToIndexGrid",         default = False, action = "store_true")
     parser_alg.add_argument("-B", "--UseBinarizedData",          default = False, action = "store_true")
     parser_alg.add_argument("-O", "--ForceOrientation",          default = False, action = "store_true")
+    parser_alg.add_argument("-E", "--ForceEqualDesignSpacing",   default = False, action = "store_true")
+    parser_alg.add_argument("-l", "--ThresholdLog",              default = False, action = "store_true")
     
     args = parser.parse_args(args = params)
     

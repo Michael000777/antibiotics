@@ -36,7 +36,8 @@ class PlateImage(object):
         if not kwargs.get('sizes', None) is None:
             self.sizes = kwargs.get('sizes')
         else:
-            self.sizes =    { 'xfigsize':   15,
+            self.sizes =    { 'xfigsize':   8,
+                              'yfigsize':   5.5,
                               'wellradius': 0.4,
                               'wellborder': 3}
 
@@ -56,12 +57,16 @@ class PlateImage(object):
 
 
         if fig is None:
-            self.fig, self.ax = plt.subplots(1,1, figsize = (7.5,5.5))
+            self.fig, self.ax = plt.subplots(1,1, figsize = (self.sizes['xfigsize'],self.sizes['yfigsize']))
         else:
             self.fig, self.ax = fig, ax
 
         # rescale data to [0,1]
-        self.data_rescale, self.threshold_rescale = self.rescale(self.__data, self.__threshold)
+        if np.max(self.__data) - np.min(self.__data) > 0:
+            self.data_rescale, self.threshold_rescale = self.rescale(self.__data, self.__threshold)
+        else:
+            self.data_rescale      = np.zeros_like(self.__data)
+            self.threshold_rescale = 0
 
         # apply and adjust figure parameters
         self.adjust_ax()
@@ -169,7 +174,7 @@ class PlateImage(object):
 
     def plot_well(self, pos, value):
         border_color = self.colors['border_growth']
-        if value <= self.threshold_rescale:
+        if value < self.threshold_rescale:
             border_color = self.colors['border_death']
         circle = matplotlib.patches.Circle(pos, self.sizes['wellradius'], facecolor = self.patch_color(value), edgecolor = border_color, linewidth = self.sizes['wellborder'])
         self.ax.add_patch(circle)
