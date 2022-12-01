@@ -29,9 +29,9 @@ class PlateImage(object):
         else:
             self.colors =   { 'growth':        ( 65,101,164),
                               'death':         (255,255,255),
-                              'border_growth': '#2e3436',
+                              'border_growth': '#555753',
                               'border_death':  '#a40000',
-                              'background':    '#d3d7cf'}
+                              'background':    '#eeeeec'}
 
         if not kwargs.get('sizes', None) is None:
             self.sizes = kwargs.get('sizes')
@@ -103,7 +103,7 @@ class PlateImage(object):
 
 
     def set_panelID(self, panelID):
-        self.ax.annotate(panelID ,[0,1.03], weight = 'bold', fontsize = self.fontsize['panelID'], xycoords = 'axes fraction')
+        self.ax.annotate(panelID ,[0,1.015], weight = 'bold', fontsize = self.fontsize['panelID'], xycoords = 'axes fraction')
 
 
     def plot_grid(self):
