@@ -186,7 +186,7 @@ def estimate_Tau_sMIC_nonlinfit_XI_AsFuncLogN(initialconditions, Rsquared = Fals
 # ** main
 # *****************************************************************
 
-def EstimateMSP(params = None):
+def EstimateMSI(params = None):
     parser = argparse.ArgumentParser()
     
     parser_io = parser.add_argument_group(description = "==== I/O parameters ====")
@@ -269,5 +269,5 @@ def EstimateMSP(params = None):
 
     
 if __name__ == "__main__":
-    EstimateMSP()
+    EstimateMSI()
 
