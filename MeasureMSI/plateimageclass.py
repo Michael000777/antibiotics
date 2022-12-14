@@ -52,8 +52,8 @@ class PlateImage(object):
         if not kwargs.get('axeslabels', None) is None:
             self.axeslabels = kwargs.get('axeslabels')
         else:
-            self.axeslabels = [r'Initial Antibiotic Concentration $B_0$ $[\mu g/ml]$',
-                               r'Inoculum size $N_0$ $[$cells$/ml]$']
+            self.axeslabels = [r'Initial Antibiotic Concentration $B_0$ $[\mu g/mL]$',
+                               r'Inoculum size $N_0$ $[$cells$/mL]$']
 
 
         if fig is None:
