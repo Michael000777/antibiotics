@@ -251,7 +251,7 @@ def EstimateMSI(params = None):
         if 'SingleParam' in args.InferenceMethods:  curdata.update(estimate_Tau_sMIC_singleParameter(transitions, Rsquared = True))
         if 'BfuncLogN'   in args.InferenceMethods:  curdata.update(estimate_Tau_sMIC_nonlinfit_AsFuncLogN(transitions, Rsquared = True))
 
-        results = results.append(curdata, ignore_index = True)
+        results = pd.concat([results,pd.DataFrame({key:[value] for key,value in curdata.items()})], ignore_index = True)
 
         # main output
         if not args.quiet:
