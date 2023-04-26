@@ -3,9 +3,9 @@ Scripts to process data from antibiotics experiments.
 
 Manuscript:
 
-Lukas Geyrhofer, Philip Ruelens, Andrew D. Farr, Diego Pesce, J. Arjan G. M. de Visser, Naama Brenner
-Minimal Surviving Inoculum in Collective Antibiotic Resistance
-mBio, Volume 14  Issue 2  e02456-22, 2023
+Lukas Geyrhofer, Philip Ruelens, Andrew D. Farr, Diego Pesce, J. Arjan G. M. de Visser, Naama Brenner  
+Minimal Surviving Inoculum in Collective Antibiotic Resistance  
+mBio, Volume 14  Issue 2  e02456-22, 2023  
 https://doi.org/10.1128/mbio.02456-22
 
 
